@@ -43,6 +43,7 @@ class ScanResult:
     serious_count: int = 0
     moderate_count: int = 0
     minor_count: int = 0
+    warnings: list = field(default_factory=list)  # Non-violation warnings (e.g. SPA detected)
 
 
 def fetch_page(url, timeout=30):
@@ -379,6 +380,48 @@ def calculate_score(scan_result):
     return score
 
 
+def detect_spa(html):
+    """Detect if a page is likely a JavaScript single-page application.
+    Returns a warning string if SPA detected, None otherwise."""
+    soup = BeautifulSoup(html, "lxml")
+    body = soup.find("body")
+    if not body:
+        return None
+
+    body_text = body.get_text(strip=True)
+    body_children = list(body.children)
+
+    indicators = []
+
+    # Check for common SPA root containers with little content
+    for div in body.find_all("div", id=True):
+        div_id = div.get("id", "")
+        if div_id in ("root", "app", "__next", "__nuxt", "svelte"):
+            # SPA root found — check if it's basically empty
+            if len(div.get_text(strip=True)) < 50:
+                indicators.append(f"SPA root div#{div_id} with minimal content")
+
+    # Very little visible text for the amount of HTML
+    html_len = len(html)
+    text_len = len(body_text)
+    if html_len > 2000 and text_len < 100:
+        indicators.append("Very little visible text in HTML body")
+
+    # Lots of script tags relative to content
+    scripts = soup.find_all("script")
+    if len(scripts) > 5 and text_len < 200:
+        indicators.append(f"{len(scripts)} script tags with minimal visible content")
+
+    if indicators:
+        return (
+            "This website appears to use client-side JavaScript rendering (SPA). "
+            "PageGuard analyzes server-rendered HTML, so some content loaded by JavaScript "
+            "may not be included in this scan. Results may be incomplete. "
+            f"Indicators: {'; '.join(indicators)}"
+        )
+    return None
+
+
 def run_scan(base_url, max_pages=5):
     """Run a full accessibility scan on a website. Returns a ScanResult."""
     result = ScanResult()
@@ -390,6 +433,12 @@ def run_scan(base_url, max_pages=5):
         result.pages.append(page)
         result.score = 0
         return result
+
+    # Check if this is a JavaScript SPA
+    spa_warning = detect_spa(html)
+    if spa_warning:
+        result.warnings.append(spa_warning)
+        logger.info("SPA detected for %s: %s", base_url, spa_warning)
 
     # Scan the base page
     page_result = check_page(base_url, html)

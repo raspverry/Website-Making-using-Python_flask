@@ -216,6 +216,24 @@ export default function SiteDetailPage({ params }: { params: Promise<{ uid: stri
 
       {scan ? (
         <>
+          {/* SPA / Scanner Warning */}
+          {scan.warnings && (() => {
+            try {
+              const warnings: string[] = JSON.parse(scan.warnings);
+              return warnings.length > 0 ? (
+                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 flex gap-2">
+                  <svg className="w-5 h-5 shrink-0 text-amber-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <div>
+                    <p className="font-medium mb-1">Scan notice</p>
+                    {warnings.map((w, i) => <p key={i}>{w}</p>)}
+                  </div>
+                </div>
+              ) : null;
+            } catch { return null; }
+          })()}
+
           {/* Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
             <div className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col items-center justify-center col-span-2 md:col-span-1">
@@ -302,8 +320,20 @@ export default function SiteDetailPage({ params }: { params: Promise<{ uid: stri
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-green-900 mb-1">All Clear!</h3>
-              <p className="text-sm text-green-700">No accessibility violations found. Your site is looking great.</p>
+              <h3 className="text-lg font-semibold text-green-900 mb-1">No automated violations found</h3>
+              <p className="text-sm text-green-700">Our scanner found no issues in the server-rendered HTML. Note that automated tools detect ~30% of all accessibility issues. We recommend combining with manual testing.</p>
+            </div>
+          )}
+
+          {/* Disclaimer */}
+          {scan.status === 'completed' && (
+            <div className="mt-8 p-4 bg-gray-50 rounded-xl border border-gray-200 text-xs text-gray-500 leading-relaxed">
+              <p>
+                <strong>Disclaimer:</strong> This scan checks server-rendered HTML for 13 common WCAG 2.2 Level AA violations.
+                Automated tools detect approximately 30% of all accessibility issues. A passing score does not guarantee
+                legal compliance with ADA, Section 508, or other regulations. This is not legal advice.{' '}
+                <a href="/disclaimer" className="text-blue-600 hover:underline">Read full disclaimer</a>.
+              </p>
             </div>
           )}
         </>

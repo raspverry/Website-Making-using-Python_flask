@@ -227,3 +227,70 @@ def delete_site(
     db.delete(site)  # cascade deletes scans and violations
     db.commit()
     return {"status": "deleted"}
+
+
+@router.get("/sites/{site_uid}/badge.svg")
+def get_badge(site_uid: str, db: Session = Depends(get_db)):
+    """Public endpoint: returns a compliance badge SVG for embedding.
+    Only available for Pro+ plans with score >= 70."""
+    site = db.query(Site).filter(Site.uid == site_uid).first()
+    if not site:
+        raise HTTPException(status_code=404, detail="Site not found")
+
+    user = db.query(User).filter(User.id == site.user_id).first()
+    if not user or user.plan not in ("pro", "agency"):
+        raise HTTPException(status_code=403, detail="Badge requires Pro plan or above")
+
+    score = site.compliance_score
+    if score is None or score < 70:
+        # Badge only for sites that pass basic threshold
+        color = "#6B7280"
+        label = "Not Verified"
+    elif score >= 90:
+        color = "#16A34A"
+        label = f"Score: {score}/100"
+    elif score >= 70:
+        color = "#2563EB"
+        label = f"Score: {score}/100"
+    else:
+        color = "#6B7280"
+        label = "Not Verified"
+
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="200" height="36" role="img" aria-label="PageGuard: {label}">
+  <title>PageGuard: {label}</title>
+  <rect rx="4" width="200" height="36" fill="#1F2937"/>
+  <rect x="80" rx="4" width="120" height="36" fill="{color}"/>
+  <rect rx="4" width="200" height="36" fill="url(#g)"/>
+  <defs><linearGradient id="g" x2="0" y2="100%"><stop offset="0" stop-opacity=".1" stop-color="#fff"/><stop offset="1" stop-opacity=".1"/></linearGradient></defs>
+  <g fill="#fff" font-family="Verdana,sans-serif" font-size="11">
+    <text x="8" y="23" font-weight="bold">PageGuard</text>
+    <text x="88" y="23">{label}</text>
+  </g>
+</svg>"""
+
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
+@router.get("/sites/{site_uid}/badge-embed")
+def get_badge_embed(
+    site_uid: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_authenticated_user),
+):
+    """Get the embed code for the compliance badge. Pro+ only."""
+    site = db.query(Site).filter(Site.uid == site_uid, Site.user_id == current_user.id).first()
+    if not site:
+        raise HTTPException(status_code=404, detail="Site not found")
+
+    if current_user.plan not in ("pro", "agency"):
+        raise HTTPException(status_code=403, detail="Badge requires Pro plan or above")
+
+    badge_url = f"{settings.FRONTEND_URL}/api/v1/sites/{site_uid}/badge.svg"
+    site_url = f"{settings.FRONTEND_URL}/dashboard/sites/{site_uid}"
+    embed_html = f'<a href="{site_url}" target="_blank" rel="noopener"><img src="{badge_url}" alt="PageGuard Accessibility Verified" width="200" height="36"></a>'
+
+    return {"badge_url": badge_url, "embed_html": embed_html}

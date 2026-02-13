@@ -27,7 +27,7 @@ class User(Base):
 
 class Site(Base):
     __tablename__ = "sites"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     uid = Column(String(12), unique=True, nullable=False, default=_uid, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
@@ -35,8 +35,9 @@ class Site(Base):
     name = Column(String(100), nullable=False)
     compliance_score = Column(Integer)
     last_scan_at = Column(DateTime)
+    next_scan_at = Column(DateTime)  # Scheduled scan time (null = no auto-scan)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
-    
+
     owner = relationship("User", back_populates="sites")
     scans = relationship("Scan", back_populates="site", cascade="all, delete-orphan")
 
@@ -55,9 +56,10 @@ class Scan(Base):
     serious_count = Column(Integer, default=0)
     moderate_count = Column(Integer, default=0)
     minor_count = Column(Integer, default=0)
+    warnings = Column(Text)  # JSON list of warning strings (e.g. SPA detection)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime)
-    
+
     site = relationship("Site", back_populates="scans")
     violations = relationship("Violation", back_populates="scan", cascade="all, delete-orphan")
 

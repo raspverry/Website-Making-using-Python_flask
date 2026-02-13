@@ -49,6 +49,10 @@ app.include_router(account.router)
 # Create tables
 Base.metadata.create_all(bind=engine)
 
+# Start scheduled scan background thread
+from backend.services.scheduler import start_scheduler
+start_scheduler()
+
 
 @app.get("/")
 def root():

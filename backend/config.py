@@ -41,11 +41,12 @@ class Settings:
     SCAN_TIMEOUT: int = int(os.getenv("SCAN_TIMEOUT", "30"))
     
     # Plan limits
+    # scan_interval_hours: 0 = no auto-scan, 168 = weekly, 24 = daily
     PLAN_LIMITS: dict = {
-        "free": {"sites": 1, "scans_per_month": 1, "max_pages": 5, "ai_fixes": False},
-        "starter": {"sites": 1, "scans_per_month": 4, "max_pages": 50, "ai_fixes": True},
-        "pro": {"sites": 5, "scans_per_month": 30, "max_pages": 50, "ai_fixes": True},
-        "agency": {"sites": 20, "scans_per_month": -1, "max_pages": 100, "ai_fixes": True},
+        "free": {"sites": 1, "scans_per_month": 1, "max_pages": 5, "ai_fixes": False, "scan_interval_hours": 0},
+        "starter": {"sites": 1, "scans_per_month": 4, "max_pages": 50, "ai_fixes": True, "scan_interval_hours": 168},
+        "pro": {"sites": 5, "scans_per_month": 30, "max_pages": 50, "ai_fixes": True, "scan_interval_hours": 24},
+        "agency": {"sites": 20, "scans_per_month": -1, "max_pages": 100, "ai_fixes": True, "scan_interval_hours": 24},
     }
 
 

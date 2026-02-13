@@ -30,6 +30,7 @@ class ScanResponse(BaseModel):
     serious_count: int
     moderate_count: int
     minor_count: int
+    warnings: Optional[str]
     created_at: datetime
     completed_at: Optional[datetime]
 

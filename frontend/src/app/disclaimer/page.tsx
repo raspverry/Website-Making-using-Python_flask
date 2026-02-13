@@ -31,8 +31,11 @@ export default function DisclaimerPage() {
               analyzes your HTML, CSS, and page structure to detect issues such as missing alternative text
               on images, insufficient color contrast, missing form labels, improper heading structure,
               keyboard accessibility problems, and other machine-detectable violations. We currently check
-              for 10 high-impact WCAG rules that cover the most common accessibility failures found across
-              the web.
+              for 13 high-impact WCAG rules that cover the most common accessibility failures found across
+              the web. Our scanner analyzes server-rendered HTML. Websites that rely heavily on
+              client-side JavaScript rendering (React, Vue, Angular, or other single-page applications)
+              may have incomplete scan results, as dynamically loaded content may not be visible to our
+              scanner.
             </p>
           </section>
 

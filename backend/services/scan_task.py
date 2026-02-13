@@ -1,4 +1,5 @@
 """Background scan task - runs website scan and saves results."""
+import json
 import logging
 from datetime import datetime, timezone
 
@@ -9,6 +10,7 @@ from backend.models import Scan, Site, User, Violation
 from backend.services.scanner import run_scan
 from backend.services.ai_service import generate_fix
 from backend.services.email_service import send_scan_complete_email
+from backend.services.scheduler import schedule_next_scan
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,8 @@ def execute_scan(scan_id: int, site_id: int, site_url: str, max_pages: int = 5, 
         scan.status = "completed"
         scan.score = result.score
         scan.pages_scanned = len(result.pages)
+        if result.warnings:
+            scan.warnings = json.dumps(result.warnings)
         scan.total_violations = result.total_violations
         scan.critical_count = result.critical_count
         scan.serious_count = result.serious_count
@@ -67,12 +71,14 @@ def execute_scan(scan_id: int, site_id: int, site_url: str, max_pages: int = 5, 
         site.last_scan_at = datetime.now(timezone.utc)
         db.commit()
 
+        # Schedule next automatic scan based on user plan
         try:
             user = db.query(User).filter(User.id == site.user_id).first()
             if user:
+                schedule_next_scan(site, user.plan, db)
                 send_scan_complete_email(user.email, site_url, result.score, result.total_violations, site.uid)
         except Exception as e:
-            logger.warning("Failed to send scan email: %s", e)
+            logger.warning("Failed to send scan email or schedule next: %s", e)
 
         logger.info("Scan %s completed: score=%s, violations=%s", scan_id, result.score, result.total_violations)
 

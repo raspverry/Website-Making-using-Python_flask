@@ -26,6 +26,7 @@ export interface Scan {
   serious_count: number;
   moderate_count: number;
   minor_count: number;
+  warnings: string | null;
   created_at: string;
   completed_at: string | null;
 }
