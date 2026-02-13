@@ -78,9 +78,17 @@ trend analysis, and interactive Q&A about accessibility issues.
 │  Services:                          │
 │  ├─ Scanner (WCAG rules engine)     │
 │  ├─ AI Service (OpenAI, configurable)│
-│  └─ Report (compliance reports)     │
+│  ├─ Report (PDF + text)             │
+│  ├─ Email (SMTP / console fallback) │
+│  ├─ Plan Service (limit enforcement)│
+│  └─ Task Runner (async scan jobs)   │
+├─────────────────────────────────────┤
+│  Middleware:                         │
+│  ├─ Rate Limiting (slowapi)         │
+│  └─ Security Headers                │
 ├─────────────────────────────────────┤
 │  Database: SQLite (dev) / PG (prod) │
+│  Migrations: Alembic                │
 └─────────────────────────────────────┘
 ```
 
@@ -92,9 +100,14 @@ trend analysis, and interactive Q&A about accessibility issues.
 | Styling | Tailwind CSS | Utility-first, no build overhead |
 | Backend | FastAPI (Python) | Async I/O, auto API docs, Pydantic validation |
 | Database | SQLAlchemy + SQLite/PostgreSQL | Type-safe ORM, easy migration |
+| Migrations | Alembic | Schema versioning, safe deployments |
 | AI | OpenAI API (configurable model) | Fix suggestions, summaries, Q&A |
 | Scanner | BeautifulSoup + requests | HTML parsing, WCAG rule engine |
 | Payments | Stripe | Checkout, webhooks, plan management |
+| PDF | ReportLab | Professional compliance reports |
+| Email | SMTP (smtplib) | Notifications, alerts, password reset |
+| Rate Limiting | slowapi | Brute force / abuse protection |
+| Security | bcrypt + PyJWT | Password hashing + token auth |
 
 ### AI Model Configuration
 - Default model: `gpt-5-mini` (configurable via `AI_MODEL` env var)
@@ -108,41 +121,53 @@ trend analysis, and interactive Q&A about accessibility issues.
 │   └── src/
 │       ├── app/             # App Router pages
 │       │   ├── page.tsx     # Landing (ADA countdown)
-│       │   ├── layout.tsx   # Root layout (nav, footer)
-│       │   ├── pricing/     # Pricing page
-│       │   ├── login/       # Auth pages
-│       │   ├── signup/
-│       │   ├── api/scan/    # API route handler
+│       │   ├── layout.tsx   # Root layout (nav, footer, skip-nav)
+│       │   ├── pricing/     # Pricing page (Stripe checkout)
+│       │   ├── login/       # Login (functional, JWT)
+│       │   ├── signup/      # Signup (functional, JWT)
+│       │   ├── privacy/     # Privacy Policy
+│       │   ├── terms/       # Terms of Service
+│       │   ├── disclaimer/  # Disclaimer (not legal advice)
 │       │   └── dashboard/   # Protected dashboard
 │       │       └── sites/[uid]/
-│       │           ├── page.tsx      # Site detail
-│       │           └── agent/page.tsx # AI Q&A
+│       │           ├── page.tsx      # Site detail + scan results
+│       │           └── agent/page.tsx # AI Q&A chat
 │       ├── components/      # Reusable UI components
+│       │   ├── AuthNav.tsx         # Auth-aware navigation
 │       │   ├── CountdownTimer.tsx  # ADA deadline countdown
-│       │   ├── ScoreCircle.tsx     # Compliance score viz
-│       │   ├── PricingCard.tsx     # Pricing plan card
+│       │   ├── ScoreCircle.tsx     # Compliance score (aria)
+│       │   ├── PricingCard.tsx     # Pricing (Stripe checkout)
 │       │   ├── ViolationCard.tsx   # Violation display
-│       │   ├── Navbar.tsx          # Navigation
-│       │   └── Footer.tsx          # Footer
+│       │   └── Footer.tsx          # Footer (legal links)
 │       ├── lib/             # API client, config
-│       │   ├── api.ts       # FastAPI client wrapper
+│       │   ├── api.ts       # Type-safe FastAPI client
 │       │   └── config.ts    # Environment config
 │       └── types/           # TypeScript interfaces
 │           └── index.ts     # User, Site, Scan, Violation types
 ├── backend/                 # FastAPI backend
-│   ├── main.py              # App entry + CORS + routers
-│   ├── config.py            # Env config (AI_MODEL, DB, etc.)
+│   ├── main.py              # App entry + middleware + routers
+│   ├── config.py            # Env config (AI_MODEL, DB, Stripe, etc.)
 │   ├── database.py          # SQLAlchemy engine + session
-│   ├── models.py            # SQLAlchemy models
+│   ├── models.py            # SQLAlchemy models (User, Site, Scan, Violation, Subscription)
 │   ├── schemas.py           # Pydantic DTOs
+│   ├── dependencies.py      # Auth dependency (JWT Bearer)
+│   ├── middleware.py         # Rate limiting + security headers
 │   ├── routers/
-│   │   ├── sites.py         # Site CRUD + scan trigger
+│   │   ├── auth.py          # JWT auth (signup/login/forgot/reset)
+│   │   ├── sites.py         # Site CRUD + scan + PDF report
 │   │   ├── agent.py         # AI Q&A endpoint
-│   │   └── auth.py          # Authentication
-│   └── services/
-│       ├── scanner.py       # WCAG rules engine (10 rules)
-│       ├── ai_service.py    # OpenAI (configurable model)
-│       └── report.py        # Report generation
+│   │   ├── billing.py       # Stripe checkout/webhooks/portal
+│   │   └── account.py       # Profile + password + deletion (GDPR)
+│   ├── services/
+│   │   ├── scanner.py       # WCAG rules engine (13 rules)
+│   │   ├── ai_service.py    # OpenAI (configurable model)
+│   │   ├── report.py        # PDF + text report generation
+│   │   ├── email_service.py # Email notifications (SMTP)
+│   │   ├── plan_service.py  # Plan enforcement (limits)
+│   │   ├── task_runner.py   # Background task thread pool
+│   │   └── scan_task.py     # Async scan execution
+│   ├── alembic/             # Database migrations
+│   └── requirements.txt     # Python dependencies
 ├── agents/                  # Multi-agent CLI system
 │   ├── orchestrator.py      # Coordinates team
 │   ├── scanner_agent.py     # Crawl + detect
@@ -152,7 +177,9 @@ trend analysis, and interactive Q&A about accessibility issues.
 │   ├── constants.py         # Shared configuration
 │   └── run.py               # CLI entry point
 ├── app/                     # Legacy Flask app (27 tests passing)
-├── tests/                   # pytest test suite
+├── tests/
+│   ├── test_app.py          # Flask tests (27 passing)
+│   └── test_backend.py      # FastAPI tests
 ├── CLAUDE.md                # This file - project brain
 ├── BUSINESS_PLAN.md         # Business plan
 ├── prd.md                   # Product requirements
@@ -161,23 +188,79 @@ trend analysis, and interactive Q&A about accessibility issues.
 ```
 
 ## Database Models
-- **User:** email, password, name, plan, stripe_customer_id
-- **Site:** url, user_id, name, last_scan_date, compliance_score
-- **Scan:** site_id, started_at, completed_at, score, pages_scanned, status
-- **Violation:** scan_id, rule_id, severity, element, description, fix_suggestion, page_url
+- **User:** email, password_hash, name, plan, stripe_customer_id, created_at
+- **Site:** uid, url, user_id, name, last_scan_at, compliance_score, created_at
+- **Scan:** uid, site_id, status, score, pages_scanned, total/critical/serious/moderate/minor counts, created_at, completed_at
+- **Violation:** scan_id, rule_id, rule_name, severity, wcag_criteria, description, element_html, page_url, fix_suggestion, selector
+- **Subscription:** user_id, stripe_subscription_id, stripe_price_id, plan, status, current_period_end
 
-## WCAG Rules We Check (MVP)
-Priority rules that catch the most common violations:
-1. Missing alt text on images (WCAG 1.1.1)
-2. Missing form labels (WCAG 1.3.1)
-3. Insufficient color contrast (WCAG 1.4.3)
-4. Missing page language attribute (WCAG 3.1.1)
-5. Missing document title (WCAG 2.4.2)
-6. Empty links / buttons (WCAG 2.4.4 / 4.1.2)
-7. Missing heading structure (WCAG 1.3.1)
-8. Keyboard accessibility issues (WCAG 2.1.1)
-9. Missing ARIA labels on interactive elements (WCAG 4.1.2)
-10. Missing skip navigation link (WCAG 2.4.1)
+## WCAG Rules We Check (13 rules)
+| # | Rule ID | WCAG | Severity | What it checks |
+|---|---------|------|----------|---------------|
+| 1 | `img-alt` | 1.1.1 | critical | Missing alt text on images |
+| 2 | `form-label` | 1.3.1 | critical | Missing form labels |
+| 3 | `color-contrast` | 1.4.3 | serious | Insufficient color contrast (inline + utility classes) |
+| 4 | `html-lang` | 3.1.1 | serious | Missing page language attribute |
+| 5 | `page-title` | 2.4.2 | serious | Missing document title |
+| 6 | `empty-link` | 2.4.4 | serious | Empty links |
+| 7 | `empty-button` | 4.1.2 | serious | Empty buttons |
+| 8 | `heading-order` | 1.3.1 | moderate | Missing/skipped heading structure |
+| 9 | `skip-nav` | 2.4.1 | moderate | Missing skip navigation link |
+| 10 | `landmark-main` | 4.1.2 | moderate | Missing main landmark |
+| 11 | `meta-viewport` | 1.4.4 | critical | Zoom disabled by viewport meta |
+| 12 | `aria-input-name` / `aria-interactive-name` | 4.1.2 | serious/critical | Interactive ARIA elements missing names |
+| 13 | `media-autoplay` | 1.4.2 | serious | Auto-playing media without mute |
+
+## API Endpoints
+
+### Auth
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/v1/auth/signup` | Create account |
+| POST | `/api/v1/auth/login` | Login, get JWT |
+| POST | `/api/v1/auth/forgot-password` | Request password reset |
+| POST | `/api/v1/auth/reset-password` | Reset with token |
+
+### Sites & Scans
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/sites` | List user's sites |
+| POST | `/api/v1/sites` | Add a site |
+| GET | `/api/v1/sites/{uid}` | Get site details |
+| DELETE | `/api/v1/sites/{uid}` | Delete site + all data |
+| POST | `/api/v1/sites/{uid}/scan` | Start async scan |
+| GET | `/api/v1/sites/{uid}/latest-scan` | Get latest scan results |
+| GET | `/api/v1/sites/{uid}/report/pdf` | Download PDF report (Pro+) |
+| GET | `/api/v1/scans/{uid}` | Poll scan status |
+
+### AI Agent
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/v1/sites/{uid}/agent/ask` | Ask AI about violations |
+| GET | `/api/v1/sites/{uid}/agent/summary` | Get executive summary |
+
+### Billing
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/v1/billing/checkout` | Create Stripe checkout |
+| POST | `/api/v1/billing/portal` | Open billing portal |
+| GET | `/api/v1/billing/subscription` | Get subscription status |
+| POST | `/api/v1/billing/webhook` | Stripe webhook handler |
+
+### Account
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/account/me` | Get profile |
+| PATCH | `/api/v1/account/me` | Update profile |
+| DELETE | `/api/v1/account/me` | Delete account (GDPR) |
+| POST | `/api/v1/account/change-password` | Change password |
+
+## Security
+- **Auth:** JWT tokens (PyJWT) + bcrypt password hashing
+- **Rate Limiting:** slowapi on auth (5/min) and scan (10/min) endpoints
+- **Security Headers:** X-Frame-Options, X-Content-Type-Options, XSS Protection, Referrer-Policy
+- **Secret Key:** Validated on startup, warns if using dev default
+- **CORS:** Configurable allowed origins via FRONTEND_URL env var
 
 ## Go-to-Market Strategy
 1. **URGENCY MARKETING:** "ADA deadline is April 24. Is your website compliant?"
@@ -220,13 +303,33 @@ python -m agents.run https://example.com --ai-orchestrate
 
 ## Environment Variables
 ```bash
-OPENAI_API_KEY=your-key       # Required for AI features
-AI_MODEL=gpt-5-mini           # Configurable model
+# Required
+SECRET_KEY=your-secure-key    # REQUIRED in production
 DATABASE_URL=sqlite:///./pageguard.db
-SECRET_KEY=change-in-production
+
+# AI (for fix suggestions)
+OPENAI_API_KEY=your-key
+AI_MODEL=gpt-5-mini           # Configurable model
+
+# Frontend
 FRONTEND_URL=http://localhost:3000
+
+# Stripe (for billing)
 STRIPE_SECRET_KEY=sk_...
-ANTHROPIC_API_KEY=...         # Only for multi-agent CLI
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_STARTER=price_...
+STRIPE_PRICE_PRO=price_...
+STRIPE_PRICE_AGENCY=price_...
+
+# Email (optional - logs to console if not set)
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=user
+SMTP_PASSWORD=pass
+FROM_EMAIL=noreply@pageguard.dev
+
+# Multi-agent CLI only
+ANTHROPIC_API_KEY=...
 ```
 
 ## Status
@@ -234,21 +337,26 @@ ANTHROPIC_API_KEY=...         # Only for multi-agent CLI
 - [x] Product definition & pricing
 - [x] Project setup & core infrastructure
 - [x] Database models (User, Site, Scan, Violation, Subscription)
-- [x] Auth system (signup/login/logout with email validation) - Flask
-- [x] Accessibility scanner engine (10 WCAG rules, multi-page crawling)
+- [x] Auth system - JWT (signup/login/forgot/reset password)
+- [x] Accessibility scanner engine (13 WCAG rules, multi-page crawling)
 - [x] AI fix suggestions (OpenAI API + rule-based fallback)
-- [x] Dashboard & scan results UI - Flask (Tailwind CSS)
-- [x] Landing page (ADA urgency-focused with deadline countdown) - Flask
-- [x] Stripe billing (checkout, webhooks, plan management) - Flask
-- [x] REST API (/api/v1/sites/<uid>/latest-scan) - Flask
-- [x] Tests (27 passing - pages, auth, scanner engine, API, models)
+- [x] Dashboard & scan results UI (functional, data-driven)
+- [x] Landing page (ADA urgency-focused with deadline countdown)
+- [x] Stripe billing (checkout, webhooks, subscription management)
+- [x] Plan enforcement (site limits, scan limits, feature gating)
+- [x] PDF compliance reports (ReportLab, Pro plan feature)
+- [x] Email notifications (welcome, scan complete, password reset)
+- [x] Background async scanning (non-blocking, ThreadPoolExecutor)
+- [x] Rate limiting + security headers middleware
+- [x] Account management + deletion (GDPR right to erasure)
+- [x] Legal pages (Privacy Policy, Terms of Service, Disclaimer)
+- [x] Frontend accessibility (skip nav, aria labels, focus styles)
+- [x] REST API (full CRUD + scan + report + agent + billing)
+- [x] Tests (Flask: 27 passing + FastAPI backend tests)
 - [x] Multi-agent CLI system (orchestrator, scanner, fix, report agents)
-- [x] Architecture v2: Next.js 16 frontend scaffolding (9 routes, builds clean)
-- [x] Architecture v2: FastAPI backend scaffolding (models, schemas, routers, services)
-- [ ] Frontend-backend API integration (wire Next.js to FastAPI)
-- [ ] Auth system migration (JWT-based for API)
-- [ ] Stripe billing migration to FastAPI
-- [ ] Frontend tests + backend tests
+- [x] Architecture v2: Next.js 16 frontend (11 routes, builds clean)
+- [x] Architecture v2: FastAPI backend (full feature set)
+- [x] Alembic database migrations
 - [ ] Deploy to Railway/Render
 - [ ] Domain setup (pageguard.dev)
 - [ ] Stripe live keys configuration

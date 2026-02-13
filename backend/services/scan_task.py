@@ -5,9 +5,10 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
-from backend.models import Scan, Site, Violation
+from backend.models import Scan, Site, User, Violation
 from backend.services.scanner import run_scan
 from backend.services.ai_service import generate_fix
+from backend.services.email_service import send_scan_complete_email
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,14 @@ def execute_scan(scan_id: int, site_id: int, site_url: str, max_pages: int = 5, 
         site.compliance_score = result.score
         site.last_scan_at = datetime.now(timezone.utc)
         db.commit()
+
+        try:
+            user = db.query(User).filter(User.id == site.user_id).first()
+            if user:
+                send_scan_complete_email(user.email, site_url, result.score, result.total_violations, site.uid)
+        except Exception as e:
+            logger.warning("Failed to send scan email: %s", e)
+
         logger.info("Scan %s completed: score=%s, violations=%s", scan_id, result.score, result.total_violations)
 
     except Exception as e:

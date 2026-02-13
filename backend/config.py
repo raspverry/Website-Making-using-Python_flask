@@ -30,6 +30,13 @@ class Settings:
     # CORS
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
     
+    # Email
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USER: str = os.getenv("SMTP_USER", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    FROM_EMAIL: str = os.getenv("FROM_EMAIL", "noreply@pageguard.dev")
+
     # Scanner
     SCAN_TIMEOUT: int = int(os.getenv("SCAN_TIMEOUT", "30"))
     
