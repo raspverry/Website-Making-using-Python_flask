@@ -13,3 +13,5 @@ build/
 htmlcov/
 .coverage
 node_modules/
+.next/
+out/

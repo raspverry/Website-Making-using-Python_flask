@@ -61,45 +61,103 @@ trend analysis, and interactive Q&A about accessibility issues.
 | Pro | $79/mo | 5 | Daily | PDF reports, compliance badge, priority |
 | Agency | $199/mo | 20 | Daily | White-label, team access, API, client portal |
 
+## Architecture (v2 - Feb 2026)
+
+```
+┌─────────────────────────────────────┐
+│         Next.js 16 Frontend         │
+│   (TypeScript, Tailwind, App Router)│
+│         localhost:3000              │
+└──────────────┬──────────────────────┘
+               │ REST API
+┌──────────────▼──────────────────────┐
+│         FastAPI Backend             │
+│   (Python 3.11, SQLAlchemy, async)  │
+│         localhost:8000              │
+├─────────────────────────────────────┤
+│  Services:                          │
+│  ├─ Scanner (WCAG rules engine)     │
+│  ├─ AI Service (OpenAI, configurable)│
+│  └─ Report (compliance reports)     │
+├─────────────────────────────────────┤
+│  Database: SQLite (dev) / PG (prod) │
+└─────────────────────────────────────┘
+```
+
 ## Tech Stack
-- **Backend:** Python 3.11+ / Flask 3.x
-- **Database:** SQLite (dev) / PostgreSQL (prod)
-- **ORM:** Flask-SQLAlchemy + Flask-Migrate
-- **Auth:** Flask-Login + Werkzeug password hashing
-- **Accessibility Scanner:** Built-in Python HTML parser + WCAG rules engine
-- **AI Suggestions:** OpenAI API (GPT-4) for fix generation
-- **Payments:** Stripe (stripe-python SDK)
-- **Frontend:** Tailwind CSS (CDN) + HTMX
-- **Email:** Flask-Mail
-- **Deployment:** Railway / Render
+
+| Layer | Technology | Why |
+|-------|-----------|-----|
+| Frontend | Next.js 16 + TypeScript | SSR, App Router, Server Components |
+| Styling | Tailwind CSS | Utility-first, no build overhead |
+| Backend | FastAPI (Python) | Async I/O, auto API docs, Pydantic validation |
+| Database | SQLAlchemy + SQLite/PostgreSQL | Type-safe ORM, easy migration |
+| AI | OpenAI API (configurable model) | Fix suggestions, summaries, Q&A |
+| Scanner | BeautifulSoup + requests | HTML parsing, WCAG rule engine |
+| Payments | Stripe | Checkout, webhooks, plan management |
+
+### AI Model Configuration
+- Default model: `gpt-5-mini` (configurable via `AI_MODEL` env var)
+- Model can be swapped anytime without code changes
+- Set in `backend/config.py` → `Settings.AI_MODEL`
 
 ## Project Structure
 ```
 /
-├── CLAUDE.md              # This file - project brain
-├── README.md              # Public README
-├── requirements.txt       # Python dependencies
-├── config.py             # App configuration
-├── run.py                # Entry point
-├── app/
-│   ├── __init__.py       # Flask app factory
-│   ├── models.py         # DB models (User, Site, Scan, Violation)
-│   ├── auth.py           # Auth routes
-│   ├── dashboard.py      # Dashboard routes
-│   ├── scanner.py        # Accessibility scanning engine
-│   ├── ai_suggestions.py # AI-powered fix suggestions
-│   ├── billing.py        # Stripe integration
-│   ├── landing.py        # Marketing pages
-│   ├── api.py            # REST API
-│   ├── templates/
-│   │   ├── base.html
-│   │   ├── auth/         # login.html, signup.html
-│   │   ├── dashboard/    # index.html, site.html, scan_results.html
-│   │   └── landing/      # index.html, pricing.html
-│   └── static/
-└── tests/
-    ├── conftest.py
-    └── test_app.py
+├── frontend/                # Next.js 16 frontend
+│   └── src/
+│       ├── app/             # App Router pages
+│       │   ├── page.tsx     # Landing (ADA countdown)
+│       │   ├── layout.tsx   # Root layout (nav, footer)
+│       │   ├── pricing/     # Pricing page
+│       │   ├── login/       # Auth pages
+│       │   ├── signup/
+│       │   ├── api/scan/    # API route handler
+│       │   └── dashboard/   # Protected dashboard
+│       │       └── sites/[uid]/
+│       │           ├── page.tsx      # Site detail
+│       │           └── agent/page.tsx # AI Q&A
+│       ├── components/      # Reusable UI components
+│       │   ├── CountdownTimer.tsx  # ADA deadline countdown
+│       │   ├── ScoreCircle.tsx     # Compliance score viz
+│       │   ├── PricingCard.tsx     # Pricing plan card
+│       │   ├── ViolationCard.tsx   # Violation display
+│       │   ├── Navbar.tsx          # Navigation
+│       │   └── Footer.tsx          # Footer
+│       ├── lib/             # API client, config
+│       │   ├── api.ts       # FastAPI client wrapper
+│       │   └── config.ts    # Environment config
+│       └── types/           # TypeScript interfaces
+│           └── index.ts     # User, Site, Scan, Violation types
+├── backend/                 # FastAPI backend
+│   ├── main.py              # App entry + CORS + routers
+│   ├── config.py            # Env config (AI_MODEL, DB, etc.)
+│   ├── database.py          # SQLAlchemy engine + session
+│   ├── models.py            # SQLAlchemy models
+│   ├── schemas.py           # Pydantic DTOs
+│   ├── routers/
+│   │   ├── sites.py         # Site CRUD + scan trigger
+│   │   ├── agent.py         # AI Q&A endpoint
+│   │   └── auth.py          # Authentication
+│   └── services/
+│       ├── scanner.py       # WCAG rules engine (10 rules)
+│       ├── ai_service.py    # OpenAI (configurable model)
+│       └── report.py        # Report generation
+├── agents/                  # Multi-agent CLI system
+│   ├── orchestrator.py      # Coordinates team
+│   ├── scanner_agent.py     # Crawl + detect
+│   ├── fix_agent.py         # Generate fixes
+│   ├── report_agent.py      # Compliance reports
+│   ├── base.py              # Base agent class
+│   ├── constants.py         # Shared configuration
+│   └── run.py               # CLI entry point
+├── app/                     # Legacy Flask app (27 tests passing)
+├── tests/                   # pytest test suite
+├── CLAUDE.md                # This file - project brain
+├── BUSINESS_PLAN.md         # Business plan
+├── prd.md                   # Product requirements
+├── ROADMAP.md               # Project roadmap
+└── TECH_STACK.md            # Tech stack docs
 ```
 
 ## Database Models
@@ -136,19 +194,61 @@ Priority rules that catch the most common violations:
 - **Simplicity:** Enter URL → get results. No technical knowledge needed.
 - **Timing:** ADA deadline creates massive urgency that won't exist after April 2026
 
+## Quick Start
+
+### Frontend (Next.js 16)
+```bash
+cd frontend
+npm install
+npm run dev
+# → http://localhost:3000
+```
+
+### Backend (FastAPI)
+```bash
+pip install -r backend/requirements.txt
+uvicorn backend.main:app --reload
+# → http://localhost:8000
+# → http://localhost:8000/docs (Swagger API docs)
+```
+
+### Multi-Agent CLI
+```bash
+python -m agents.run https://example.com
+python -m agents.run https://example.com --ai-orchestrate
+```
+
+## Environment Variables
+```bash
+OPENAI_API_KEY=your-key       # Required for AI features
+AI_MODEL=gpt-5-mini           # Configurable model
+DATABASE_URL=sqlite:///./pageguard.db
+SECRET_KEY=change-in-production
+FRONTEND_URL=http://localhost:3000
+STRIPE_SECRET_KEY=sk_...
+ANTHROPIC_API_KEY=...         # Only for multi-agent CLI
+```
+
 ## Status
 - [x] Market research & timing validation (Feb 2026 - ADA deadline Apr 24)
 - [x] Product definition & pricing
 - [x] Project setup & core infrastructure
 - [x] Database models (User, Site, Scan, Violation, Subscription)
-- [x] Auth system (signup/login/logout with email validation)
+- [x] Auth system (signup/login/logout with email validation) - Flask
 - [x] Accessibility scanner engine (10 WCAG rules, multi-page crawling)
 - [x] AI fix suggestions (OpenAI API + rule-based fallback)
-- [x] Dashboard & scan results UI (Tailwind CSS, score visualization)
-- [x] Landing page (ADA urgency-focused with deadline countdown)
-- [x] Stripe billing (checkout, webhooks, plan management)
-- [x] REST API (/api/v1/sites/<uid>/latest-scan)
+- [x] Dashboard & scan results UI - Flask (Tailwind CSS)
+- [x] Landing page (ADA urgency-focused with deadline countdown) - Flask
+- [x] Stripe billing (checkout, webhooks, plan management) - Flask
+- [x] REST API (/api/v1/sites/<uid>/latest-scan) - Flask
 - [x] Tests (27 passing - pages, auth, scanner engine, API, models)
+- [x] Multi-agent CLI system (orchestrator, scanner, fix, report agents)
+- [x] Architecture v2: Next.js 16 frontend scaffolding (9 routes, builds clean)
+- [x] Architecture v2: FastAPI backend scaffolding (models, schemas, routers, services)
+- [ ] Frontend-backend API integration (wire Next.js to FastAPI)
+- [ ] Auth system migration (JWT-based for API)
+- [ ] Stripe billing migration to FastAPI
+- [ ] Frontend tests + backend tests
 - [ ] Deploy to Railway/Render
 - [ ] Domain setup (pageguard.dev)
 - [ ] Stripe live keys configuration
