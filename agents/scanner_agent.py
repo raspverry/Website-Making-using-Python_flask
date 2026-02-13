@@ -3,15 +3,23 @@ Scanner Agent - Crawls websites and detects WCAG 2.2 Level AA violations.
 
 This agent uses PageGuard's built-in scanner engine and wraps it
 with Claude's intelligence for deeper analysis.
+
+Note: Scanner functions (run_scan, check_page, etc.) do NOT require
+Flask app context - they are pure functions using requests + BeautifulSoup.
 """
 
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+import logging
+from typing import Any, Optional
 
 from agents.base import BaseAgent
-from app.scanner import run_scan, fetch_page, check_page, discover_pages
+
+logger = logging.getLogger(__name__)
+
+
+def _import_scanner():
+    """Import scanner module. Separated for clarity - no Flask context needed."""
+    from app.scanner import run_scan, fetch_page, check_page, discover_pages
+    return run_scan, fetch_page, check_page, discover_pages
 
 
 class ScannerAgent(BaseAgent):
@@ -33,7 +41,7 @@ You have access to these tools:
 Always be thorough and report ALL violations found. Group results by page URL.
 Report the compliance score (0-100) using the severity-weighted formula."""
 
-    def get_tools(self):
+    def get_tools(self) -> list[dict]:
         return [
             {
                 "name": "scan_website",
@@ -72,7 +80,7 @@ Report the compliance score (0-100) using the severity-weighted formula."""
             },
         ]
 
-    def _handle_tool(self, tool_name, tool_input):
+    def _handle_tool(self, tool_name: str, tool_input: dict) -> Any:
         if tool_name == "scan_website":
             return self._scan_website(tool_input["url"], tool_input.get("max_pages", 5))
         elif tool_name == "scan_single_page":
@@ -81,67 +89,75 @@ Report the compliance score (0-100) using the severity-weighted formula."""
             return self._discover_links(tool_input["url"], tool_input.get("max_links", 10))
         return {"error": f"Unknown tool: {tool_name}"}
 
-    def _scan_website(self, url, max_pages):
+    def _scan_website(self, url: str, max_pages: int) -> dict:
         """Run a full website scan using the PageGuard scanner engine."""
+        run_scan, _, _, _ = _import_scanner()
         try:
             result = run_scan(url, max_pages=max_pages)
-            pages = []
-            for page in result.pages:
-                violations = []
-                for v in page.violations:
-                    violations.append({
-                        "rule_id": v.rule_id,
-                        "rule_name": v.rule_name,
-                        "severity": v.severity,
-                        "wcag_criteria": v.wcag_criteria,
-                        "description": v.description,
-                        "element_html": v.element_html[:200] if v.element_html else "",
-                        "selector": v.selector,
-                    })
-                pages.append({
-                    "url": page.url,
-                    "violations": violations,
-                    "violation_count": len(violations),
-                    "error": page.error,
-                })
-
-            return {
-                "score": result.score,
-                "total_violations": result.total_violations,
-                "critical_count": result.critical_count,
-                "serious_count": result.serious_count,
-                "moderate_count": result.moderate_count,
-                "minor_count": result.minor_count,
-                "pages_scanned": len(result.pages),
-                "pages": pages,
-            }
         except Exception as e:
-            return {"error": str(e)}
+            logger.error("[scanner] Failed to scan %s: %s", url, e)
+            return {"error": f"Scan failed: {e}", "url": url}
 
-    def _scan_single_page(self, url):
-        """Scan a single page."""
-        try:
-            html = fetch_page(url)
-            result = check_page(url, html)
+        pages = []
+        for page in result.pages:
             violations = []
-            for v in result.violations:
+            for v in page.violations:
                 violations.append({
                     "rule_id": v.rule_id,
                     "rule_name": v.rule_name,
                     "severity": v.severity,
                     "wcag_criteria": v.wcag_criteria,
                     "description": v.description,
-                    "element_html": v.element_html[:200] if v.element_html else "",
+                    "element_html": (v.element_html or "")[:200],
+                    "selector": v.selector or "",
                 })
-            return {"url": url, "violations": violations, "count": len(violations)}
-        except Exception as e:
-            return {"error": str(e)}
+            pages.append({
+                "url": page.url,
+                "violations": violations,
+                "violation_count": len(violations),
+                "error": page.error or "",
+            })
 
-    def _discover_links(self, url, max_links):
+        return {
+            "score": result.score,
+            "total_violations": result.total_violations,
+            "critical_count": result.critical_count,
+            "serious_count": result.serious_count,
+            "moderate_count": result.moderate_count,
+            "minor_count": result.minor_count,
+            "pages_scanned": len(result.pages),
+            "pages": pages,
+        }
+
+    def _scan_single_page(self, url: str) -> dict:
+        """Scan a single page."""
+        _, fetch_page, check_page, _ = _import_scanner()
+        try:
+            html = fetch_page(url)
+            result = check_page(url, html)
+        except Exception as e:
+            logger.error("[scanner] Failed to scan page %s: %s", url, e)
+            return {"error": f"Page scan failed: {e}", "url": url}
+
+        violations = []
+        for v in result.violations:
+            violations.append({
+                "rule_id": v.rule_id,
+                "rule_name": v.rule_name,
+                "severity": v.severity,
+                "wcag_criteria": v.wcag_criteria,
+                "description": v.description,
+                "element_html": (v.element_html or "")[:200],
+            })
+        return {"url": url, "violations": violations, "count": len(violations)}
+
+    def _discover_links(self, url: str, max_links: int) -> dict:
         """Discover internal links."""
+        _, fetch_page, _, discover_pages = _import_scanner()
         try:
             html = fetch_page(url)
             links = discover_pages(url, html, max_pages=max_links)
-            return {"url": url, "internal_links": links, "count": len(links)}
         except Exception as e:
-            return {"error": str(e)}
+            logger.error("[scanner] Failed to discover links on %s: %s", url, e)
+            return {"error": f"Link discovery failed: {e}", "url": url}
+        return {"url": url, "internal_links": links, "count": len(links)}
