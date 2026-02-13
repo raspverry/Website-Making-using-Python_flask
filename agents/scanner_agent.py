@@ -4,8 +4,8 @@ Scanner Agent - Crawls websites and detects WCAG 2.2 Level AA violations.
 This agent uses PageGuard's built-in scanner engine and wraps it
 with Claude's intelligence for deeper analysis.
 
-Note: Scanner functions (run_scan, check_page, etc.) do NOT require
-Flask app context - they are pure functions using requests + BeautifulSoup.
+Scanner functions (run_scan, check_page, etc.) are pure functions
+using requests + BeautifulSoup - no framework context needed.
 """
 
 import logging
@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 def _import_scanner():
-    """Import scanner module. Separated for clarity - no Flask context needed."""
-    from app.scanner import run_scan, fetch_page, check_page, discover_pages
+    """Import scanner module from backend services."""
+    from backend.services.scanner import run_scan, fetch_page, check_page, discover_pages
     return run_scan, fetch_page, check_page, discover_pages
 
 

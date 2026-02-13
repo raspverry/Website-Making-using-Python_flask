@@ -53,8 +53,8 @@ PageGuard - AI 기반 웹 접근성 컴플라이언스 스캐너
 - **Spec:**
   - 이메일 + 비밀번호 가입 (8자 이상, 이메일 형식 검증)
   - 로그인 / 로그아웃
-  - 세션 기반 인증 (Flask-Login)
-  - CSRF 보호
+  - JWT 토큰 기반 인증 (PyJWT + bcrypt)
+  - Rate limiting (slowapi)
 
 #### F2: 사이트 관리
 - **Priority:** P0
@@ -70,7 +70,7 @@ PageGuard - AI 기반 웹 접근성 컴플라이언스 스캐너
 - **Priority:** P0
 - **Status:** Done
 - **Spec:**
-  - 10개 WCAG 2.2 Level AA 규칙 검사:
+  - 13개 WCAG 2.2 Level AA 규칙 검사:
     1. `img-alt` - 이미지 alt 텍스트 누락 (Critical)
     2. `form-label` - 폼 라벨 누락 (Critical)
     3. `meta-viewport` - 줌 비활성화 (Critical)
@@ -81,6 +81,9 @@ PageGuard - AI 기반 웹 접근성 컴플라이언스 스캐너
     8. `heading-order` - 헤딩 레벨 건너뛰기 (Moderate)
     9. `skip-nav` - 스킵 네비게이션 누락 (Moderate)
     10. `landmark-main` - main 랜드마크 누락 (Moderate)
+    11. `color-contrast` - 색상 대비 부족 (Serious)
+    12. `aria-input-name` / `aria-interactive-name` - 접근 가능한 이름 누락 (Serious/Critical)
+    13. `media-autoplay` - 자동 재생 미디어 (Serious)
   - 멀티페이지 크롤링 (내부 링크 자동 발견)
   - 플랜별 페이지 수 제한 (Free: 5, Starter/Pro: 50, Agency: 100)
   - 컴플라이언스 점수 계산 (0-100, 심각도 가중치)
@@ -89,7 +92,7 @@ PageGuard - AI 기반 웹 접근성 컴플라이언스 스캐너
 - **Priority:** P0
 - **Status:** Done
 - **Spec:**
-  - OpenAI API (GPT-4o-mini) 기반 맥락적 수정 제안
+  - OpenAI API (gpt-5-mini (AI_MODEL 환경변수로 설정 가능)) 기반 맥락적 수정 제안
   - API 키 없을 시 규칙 기반 폴백 (10개 규칙별 사전 정의된 수정안)
   - 유료 플랜만 AI 수정 제안 활성화
   - 각 위반에 대해: 평문 설명 + 코드 수정 예시
@@ -101,7 +104,7 @@ PageGuard - AI 기반 웹 접근성 컴플라이언스 스캐너
   - 사이트 목록 (점수 배지, 마지막 스캔일)
   - 사이트 상세 (점수 카드, 심각도별 카운트, 스캔 히스토리)
   - 스캔 결과 (심각도 필터, 위반 상세, AI 수정 제안)
-  - 반응형 디자인 (Tailwind CSS)
+  - 반응형 디자인 (Next.js 16 App Router + TypeScript, Tailwind CSS)
 
 #### F6: 랜딩 페이지
 - **Priority:** P0
@@ -136,9 +139,14 @@ PageGuard - AI 기반 웹 접근성 컴플라이언스 스캐너
 - **Priority:** P1
 - **Status:** Done
 - **Spec:**
-  - `GET /api/v1/sites/<uid>/latest-scan` → JSON 응답
-  - 위반 목록, 점수, 사이트 정보 포함
-  - CSRF 면제 (API 용도)
+  - 전체 REST API 엔드포인트:
+    - Auth: 회원가입, 로그인, 비밀번호 찾기/재설정
+    - Sites: CRUD + 스캔 실행 + 최신 스캔 조회 + PDF 리포트
+    - Agent: AI Q&A + 요약
+    - Billing: Stripe 결제/웹훅/포탈/구독 조회
+    - Account: 프로필 조회/수정, 비밀번호 변경, 계정 삭제 (GDPR)
+  - JWT Bearer 인증
+  - JSON 응답 (위반 목록, 점수, 사이트 정보 포함)
 
 ---
 
@@ -155,7 +163,7 @@ PageGuard - AI 기반 웹 접근성 컴플라이언스 스캐너
 
 #### F11: PDF 리포트 생성
 - **Priority:** P1
-- **Status:** Planned
+- **Status:** Done
 - **Spec:**
   - 브랜딩된 PDF 컴플라이언스 리포트
   - 점수, 위반 요약, 상세 목록, 수정 제안 포함
@@ -208,10 +216,10 @@ PageGuard - AI 기반 웹 접근성 컴플라이언스 스캐너
 - 동시 스캔: 최소 10개
 
 ### 보안
-- 비밀번호: Werkzeug bcrypt 해싱
-- CSRF 보호: Flask-WTF
+- 비밀번호: bcrypt 해싱
+- Rate Limiting: slowapi
 - SQL Injection 방지: SQLAlchemy ORM (parameterized queries)
-- XSS 방지: Jinja2 자동 이스케이핑
+- XSS 방지: Next.js 자동 이스케이핑
 - HTTPS 전용 (프로덕션)
 
 ### 가용성

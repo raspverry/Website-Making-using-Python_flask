@@ -134,8 +134,7 @@ STRIPE_SECRET_KEY=sk_...
 │   ├── report_agent.py      # Compliance reports
 │   ├── base.py              # Base agent class
 │   └── constants.py         # Shared configuration
-├── app/                     # Legacy Flask app (27 tests passing)
-├── tests/                   # pytest test suite
+├── tests/                   # pytest test suite (37 tests)
 ├── CLAUDE.md                # Project brain
 ├── BUSINESS_PLAN.md         # Business plan
 ├── prd.md                   # Product requirements

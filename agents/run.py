@@ -81,8 +81,8 @@ Examples:
 
 def run_direct_audit(url, max_pages, api_key, output_file):
     """Run direct multi-agent audit without AI orchestration."""
-    from app.scanner import run_scan
-    from app.ai_suggestions import RULE_FIXES
+    from backend.services.scanner import run_scan
+    from backend.services.ai_service import RULE_FIXES
     from agents.report_agent import ReportAgent
 
     print(f"\n{'='*60}")

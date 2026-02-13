@@ -299,6 +299,41 @@ class TestScanner:
         rule_ids = [v.rule_id for v in result.violations]
         assert "empty-button" in rule_ids
 
+    def test_missing_title(self):
+        from backend.services.scanner import check_page
+        html = '<html lang="en"><head></head><body><main><h1>Hello</h1></main></body></html>'
+        result = check_page("https://test.com", html)
+        rule_ids = [v.rule_id for v in result.violations]
+        assert "page-title" in rule_ids
+
+    def test_valid_form_label(self):
+        from backend.services.scanner import check_page
+        html = '<html lang="en"><head><title>Test</title></head><body><main><form><label for="email">Email</label><input type="text" id="email" name="email"></form></main></body></html>'
+        result = check_page("https://test.com", html)
+        rule_ids = [v.rule_id for v in result.violations]
+        assert "form-label" not in rule_ids
+
+    def test_empty_link(self):
+        from backend.services.scanner import check_page
+        html = '<html lang="en"><head><title>Test</title></head><body><main><a href="/page"></a></main></body></html>'
+        result = check_page("https://test.com", html)
+        rule_ids = [v.rule_id for v in result.violations]
+        assert "empty-link" in rule_ids
+
+    def test_zoom_disabled(self):
+        from backend.services.scanner import check_page
+        html = '<html lang="en"><head><title>Test</title><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"></head><body><main><h1>Hi</h1></main></body></html>'
+        result = check_page("https://test.com", html)
+        rule_ids = [v.rule_id for v in result.violations]
+        assert "meta-viewport" in rule_ids
+
+    def test_heading_skip(self):
+        from backend.services.scanner import check_page
+        html = '<html lang="en"><head><title>Test</title></head><body><main><h1>Title</h1><h3>Skipped h2</h3></main></body></html>'
+        result = check_page("https://test.com", html)
+        rule_ids = [v.rule_id for v in result.violations]
+        assert "heading-order" in rule_ids
+
     def test_score_calculation(self):
         from backend.services.scanner import ScanResult, calculate_score
         result = ScanResult(total_violations=0)
@@ -308,6 +343,13 @@ class TestScanner:
         score = calculate_score(result2)
         assert 0 <= score <= 100
         assert score < 100
+
+    def test_score_exact(self):
+        from backend.services.scanner import ScanResult, calculate_score
+        result = ScanResult(critical_count=2, serious_count=1, moderate_count=3, minor_count=2, total_violations=8)
+        score = calculate_score(result)
+        # 2*15 + 1*8 + 3*3 + 2*1 = 30 + 8 + 9 + 2 = 49 penalty
+        assert score == 51
 
 
 class TestPDFReport:

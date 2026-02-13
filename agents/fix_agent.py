@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 def _import_rule_fixes():
-    """Import rule fixes from app module."""
-    from app.ai_suggestions import RULE_FIXES
+    """Import rule fixes from backend AI service."""
+    from backend.services.ai_service import RULE_FIXES
     return RULE_FIXES
 
 

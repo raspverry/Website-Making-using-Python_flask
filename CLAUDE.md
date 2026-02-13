@@ -35,9 +35,9 @@ python -m agents.run https://example.com --agent scanner
 ```
 
 ### In-App AI Agent
-The web app also has a built-in AI agent (`app/agent.py` + `app/agent_routes.py`) accessible at
-`/agent/sites/<uid>/agent` that provides executive summaries, prioritized remediation plans,
-trend analysis, and interactive Q&A about accessibility issues.
+The web app has a built-in AI agent (`backend/routers/agent.py` + `backend/services/ai_service.py`)
+accessible via the REST API at `/api/v1/sites/<uid>/agent/ask` and `/api/v1/sites/<uid>/agent/summary`
+that provides executive summaries, prioritized remediation plans, and interactive Q&A about accessibility issues.
 
 ## Revenue Target
 - **Goal:** $1,000 MRR (Monthly Recurring Revenue) within 60 days of launch
@@ -176,10 +176,8 @@ trend analysis, and interactive Q&A about accessibility issues.
 │   ├── base.py              # Base agent class
 │   ├── constants.py         # Shared configuration
 │   └── run.py               # CLI entry point
-├── app/                     # Legacy Flask app (27 tests passing)
 ├── tests/
-│   ├── test_app.py          # Flask tests (27 passing)
-│   └── test_backend.py      # FastAPI tests
+│   └── test_backend.py      # FastAPI tests (37 passing)
 ├── CLAUDE.md                # This file - project brain
 ├── BUSINESS_PLAN.md         # Business plan
 ├── prd.md                   # Product requirements
@@ -352,10 +350,11 @@ ANTHROPIC_API_KEY=...
 - [x] Legal pages (Privacy Policy, Terms of Service, Disclaimer)
 - [x] Frontend accessibility (skip nav, aria labels, focus styles)
 - [x] REST API (full CRUD + scan + report + agent + billing)
-- [x] Tests (Flask: 27 passing + FastAPI backend tests)
+- [x] Tests (37 passing - API, auth, scanner, reports, account)
 - [x] Multi-agent CLI system (orchestrator, scanner, fix, report agents)
-- [x] Architecture v2: Next.js 16 frontend (11 routes, builds clean)
-- [x] Architecture v2: FastAPI backend (full feature set)
+- [x] Next.js 16 frontend (11 routes, builds clean)
+- [x] FastAPI backend (full feature set)
+- [x] Legacy Flask cleanup (app/ removed, agents rewired to backend)
 - [x] Alembic database migrations
 - [ ] Deploy to Railway/Render
 - [ ] Domain setup (pageguard.dev)
