@@ -4,12 +4,13 @@ from app import create_app, db as _db
 
 class TestConfig:
     TESTING = True
-    SECRET_KEY = "test-secret-key"
+    SECRET_KEY = "test-secret"
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     WTF_CSRF_ENABLED = False
     SERVER_NAME = "localhost"
     APP_URL = "http://localhost"
+    OPENAI_API_KEY = ""
     STRIPE_SECRET_KEY = ""
     STRIPE_PUBLISHABLE_KEY = ""
     STRIPE_WEBHOOK_SECRET = ""
@@ -22,13 +23,16 @@ class TestConfig:
     MAIL_USERNAME = ""
     MAIL_PASSWORD = ""
     MAIL_DEFAULT_SENDER = "test@test.com"
-    APP_NAME = "TestiFlow"
+    APP_NAME = "PageGuard"
     MAX_CONTENT_LENGTH = 5 * 1024 * 1024
+    SCAN_MAX_PAGES_FREE = 5
+    SCAN_MAX_PAGES_PAID = 50
+    SCAN_TIMEOUT = 10
     PLAN_LIMITS = {
-        "free": {"spaces": 1, "testimonials_per_space": 10, "widgets": ["wall"], "branding": True},
-        "starter": {"spaces": 3, "testimonials_per_space": 50, "widgets": ["wall", "carousel", "badge"], "branding": False},
-        "pro": {"spaces": 10, "testimonials_per_space": -1, "widgets": ["wall", "carousel", "badge", "slider"], "branding": False},
-        "agency": {"spaces": -1, "testimonials_per_space": -1, "widgets": ["wall", "carousel", "badge", "slider"], "branding": False},
+        "free": {"sites": 1, "scans_per_month": 1, "max_pages": 5, "ai_fixes": False, "pdf_report": False},
+        "starter": {"sites": 1, "scans_per_month": 4, "max_pages": 50, "ai_fixes": True, "pdf_report": True},
+        "pro": {"sites": 5, "scans_per_month": 30, "max_pages": 50, "ai_fixes": True, "pdf_report": True},
+        "agency": {"sites": 20, "scans_per_month": -1, "max_pages": 100, "ai_fixes": True, "pdf_report": True},
     }
 
 

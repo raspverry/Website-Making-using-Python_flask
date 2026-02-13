@@ -7,7 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
 
 
-def generate_uuid():
+def _uid():
     return uuid.uuid4().hex[:12]
 
 
@@ -19,10 +19,10 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     plan = db.Column(db.String(20), nullable=False, default="free")
-    stripe_customer_id = db.Column(db.String(255), nullable=True)
+    stripe_customer_id = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
-    spaces = db.relationship("Space", backref="owner", lazy="dynamic", cascade="all, delete-orphan")
+    sites = db.relationship("Site", backref="owner", lazy="dynamic", cascade="all, delete-orphan")
     subscription = db.relationship("Subscription", backref="user", uselist=False, cascade="all, delete-orphan")
 
     def set_password(self, password):
@@ -35,91 +35,69 @@ class User(UserMixin, db.Model):
         from flask import current_app
         return current_app.config["PLAN_LIMITS"].get(self.plan, current_app.config["PLAN_LIMITS"]["free"])
 
-    def can_create_space(self):
+    def can_add_site(self):
         limits = self.get_plan_limits()
-        max_spaces = limits["spaces"]
-        if max_spaces == -1:
+        max_sites = limits["sites"]
+        if max_sites == -1:
             return True
-        return self.spaces.count() < max_spaces
+        return self.sites.count() < max_sites
 
-    def has_branding(self):
-        return self.get_plan_limits()["branding"]
+    def has_ai_fixes(self):
+        return self.get_plan_limits()["ai_fixes"]
 
 
-class Space(db.Model):
-    __tablename__ = "spaces"
+class Site(db.Model):
+    __tablename__ = "sites"
 
     id = db.Column(db.Integer, primary_key=True)
-    uid = db.Column(db.String(12), unique=True, nullable=False, default=generate_uuid, index=True)
+    uid = db.Column(db.String(12), unique=True, nullable=False, default=_uid, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    url = db.Column(db.String(500), nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    slug = db.Column(db.String(100), nullable=False, index=True)
-    logo_url = db.Column(db.String(500), nullable=True)
-    website_url = db.Column(db.String(500), nullable=True)
-    header_text = db.Column(db.String(200), default="Share your experience with us!")
-    thank_you_text = db.Column(db.String(200), default="Thank you for your testimonial!")
-    questions = db.Column(db.Text, nullable=True)  # JSON list of custom questions
+    compliance_score = db.Column(db.Integer)  # 0-100
+    last_scan_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
-    testimonials = db.relationship("Testimonial", backref="space", lazy="dynamic", cascade="all, delete-orphan")
-    widgets = db.relationship("Widget", backref="space", lazy="dynamic", cascade="all, delete-orphan")
+    scans = db.relationship("Scan", backref="site", lazy="dynamic", cascade="all, delete-orphan")
 
-    def approved_testimonials(self):
-        return self.testimonials.filter_by(status="approved")
-
-    def pending_testimonials(self):
-        return self.testimonials.filter_by(status="pending")
-
-    def testimonial_count(self):
-        return self.testimonials.count()
-
-    def can_accept_testimonial(self):
-        limits = self.owner.get_plan_limits()
-        max_per_space = limits["testimonials_per_space"]
-        if max_per_space == -1:
-            return True
-        return self.testimonial_count() < max_per_space
+    def latest_scan(self):
+        return self.scans.order_by(Scan.created_at.desc()).first()
 
 
-class Testimonial(db.Model):
-    __tablename__ = "testimonials"
+class Scan(db.Model):
+    __tablename__ = "scans"
 
     id = db.Column(db.Integer, primary_key=True)
-    uid = db.Column(db.String(12), unique=True, nullable=False, default=generate_uuid)
-    space_id = db.Column(db.Integer, db.ForeignKey("spaces.id"), nullable=False)
-    author_name = db.Column(db.String(100), nullable=False)
-    author_email = db.Column(db.String(255), nullable=True)
-    author_title = db.Column(db.String(100), nullable=True)  # e.g. "CEO at Acme"
-    author_avatar_url = db.Column(db.String(500), nullable=True)
-    company = db.Column(db.String(100), nullable=True)
-    rating = db.Column(db.Integer, nullable=True)  # 1-5 stars
-    text = db.Column(db.Text, nullable=False)
-    status = db.Column(db.String(20), nullable=False, default="pending", index=True)  # pending, approved, rejected
-    is_starred = db.Column(db.Boolean, default=False)
-    tags = db.Column(db.String(500), nullable=True)  # comma-separated tags
-    source = db.Column(db.String(50), default="form")  # form, import, manual
+    uid = db.Column(db.String(12), unique=True, nullable=False, default=_uid)
+    site_id = db.Column(db.Integer, db.ForeignKey("sites.id"), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default="pending")  # pending, running, completed, failed
+    score = db.Column(db.Integer)  # 0-100
+    pages_scanned = db.Column(db.Integer, default=0)
+    total_violations = db.Column(db.Integer, default=0)
+    critical_count = db.Column(db.Integer, default=0)
+    serious_count = db.Column(db.Integer, default=0)
+    moderate_count = db.Column(db.Integer, default=0)
+    minor_count = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    completed_at = db.Column(db.DateTime)
 
-    def get_tags_list(self):
-        if not self.tags:
-            return []
-        return [t.strip() for t in self.tags.split(",") if t.strip()]
+    violations = db.relationship("Violation", backref="scan", lazy="dynamic", cascade="all, delete-orphan")
 
 
-class Widget(db.Model):
-    __tablename__ = "widgets"
+class Violation(db.Model):
+    __tablename__ = "violations"
 
     id = db.Column(db.Integer, primary_key=True)
-    uid = db.Column(db.String(12), unique=True, nullable=False, default=generate_uuid)
-    space_id = db.Column(db.Integer, db.ForeignKey("spaces.id"), nullable=False)
-    widget_type = db.Column(db.String(30), nullable=False, default="wall")  # wall, carousel, badge
-    theme = db.Column(db.String(20), default="light")  # light, dark
-    max_display = db.Column(db.Integer, default=10)
-    show_rating = db.Column(db.Boolean, default=True)
-    show_date = db.Column(db.Boolean, default=False)
-    show_avatar = db.Column(db.Boolean, default=True)
-    custom_css = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    scan_id = db.Column(db.Integer, db.ForeignKey("scans.id"), nullable=False)
+    rule_id = db.Column(db.String(50), nullable=False)  # e.g. "img-alt", "label", "color-contrast"
+    rule_name = db.Column(db.String(100), nullable=False)
+    severity = db.Column(db.String(20), nullable=False)  # critical, serious, moderate, minor
+    wcag_criteria = db.Column(db.String(50))  # e.g. "1.1.1", "1.4.3"
+    description = db.Column(db.Text, nullable=False)
+    element_html = db.Column(db.Text)  # the offending HTML snippet
+    page_url = db.Column(db.String(500))
+    fix_suggestion = db.Column(db.Text)  # AI-generated fix
+    selector = db.Column(db.String(500))  # CSS selector to the element
 
 
 class Subscription(db.Model):
@@ -127,8 +105,8 @@ class Subscription(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, unique=True)
-    stripe_subscription_id = db.Column(db.String(255), nullable=True)
-    stripe_price_id = db.Column(db.String(255), nullable=True)
-    status = db.Column(db.String(30), nullable=False, default="active")  # active, canceled, past_due
-    current_period_end = db.Column(db.DateTime, nullable=True)
+    stripe_subscription_id = db.Column(db.String(255))
+    stripe_price_id = db.Column(db.String(255))
+    status = db.Column(db.String(30), nullable=False, default="active")
+    current_period_end = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))

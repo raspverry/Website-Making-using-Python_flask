@@ -1,37 +1,41 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
-
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="flex justify-between items-center mb-8">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">Your Spaces</h1>
-            <p class="text-sm text-gray-500 mt-1">Manage your testimonial collection spaces</p>
+            <h1 class="text-2xl font-bold text-gray-900">Your Websites</h1>
+            <p class="text-sm text-gray-500 mt-1">Monitor accessibility compliance across your sites</p>
         </div>
-        <a href="{{ url_for('dashboard.create_space') }}"
-           class="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 transition">
-            + New Space
-        </a>
+        <a href="{{ url_for('dashboard.add_site') }}" class="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 transition">+ Add Website</a>
     </div>
 
-    {% if spaces %}
+    {% if sites %}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {% for space in spaces %}
-        <a href="{{ url_for('dashboard.space_detail', space_uid=space.uid) }}"
-           class="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition group">
+        {% for site in sites %}
+        <a href="{{ url_for('dashboard.site_detail', site_uid=site.uid) }}" class="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition group">
             <div class="flex items-start justify-between mb-4">
-                <div class="w-12 h-12 bg-brand-100 rounded-lg flex items-center justify-center">
-                    <span class="text-brand-700 font-bold text-lg">{{ space.name[0].upper() }}</span>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-lg font-semibold text-gray-900 group-hover:text-brand-600 transition truncate">{{ site.name }}</h3>
+                    <p class="text-sm text-gray-400 truncate">{{ site.url }}</p>
                 </div>
-                <span class="text-xs text-gray-400">{{ space.created_at.strftime('%b %d, %Y') }}</span>
+                {% if site.compliance_score is not none %}
+                <div class="ml-4 flex-shrink-0">
+                    <div class="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold
+                        {% if site.compliance_score >= 80 %}bg-ok-50 text-ok-600 border-2 border-ok-500
+                        {% elif site.compliance_score >= 50 %}bg-warn-50 text-warn-600 border-2 border-warn-500
+                        {% else %}bg-danger-50 text-danger-600 border-2 border-danger-500{% endif %}">
+                        {{ site.compliance_score }}
+                    </div>
+                </div>
+                {% endif %}
             </div>
-            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-brand-600 transition">{{ space.name }}</h3>
-            {% if space.website_url %}
-            <p class="text-sm text-gray-400 mt-1 truncate">{{ space.website_url }}</p>
-            {% endif %}
-            <div class="flex items-center space-x-4 mt-4 text-sm text-gray-500">
-                <span>{{ space.testimonial_count() }} testimonials</span>
-                <span>{{ space.pending_testimonials().count() }} pending</span>
+            <div class="flex items-center text-xs text-gray-400 space-x-3">
+                {% if site.last_scan_at %}
+                <span>Last scan: {{ site.last_scan_at.strftime('%b %d, %Y') }}</span>
+                {% else %}
+                <span>Not scanned yet</span>
+                {% endif %}
             </div>
         </a>
         {% endfor %}
@@ -39,16 +43,11 @@
     {% else %}
     <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
         <div class="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg class="w-8 h-8 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
-            </svg>
+            <svg class="w-8 h-8 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
         </div>
-        <h3 class="text-lg font-semibold text-gray-900 mb-2">No spaces yet</h3>
-        <p class="text-gray-500 mb-6">Create your first space to start collecting testimonials.</p>
-        <a href="{{ url_for('dashboard.create_space') }}"
-           class="bg-brand-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-brand-700 transition inline-block">
-            Create Your First Space
-        </a>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Add your first website</h3>
+        <p class="text-gray-500 mb-6">Enter your website URL and we'll scan it for accessibility issues in seconds.</p>
+        <a href="{{ url_for('dashboard.add_site') }}" class="bg-brand-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-brand-700 transition inline-block">Add Website</a>
     </div>
     {% endif %}
 </div>

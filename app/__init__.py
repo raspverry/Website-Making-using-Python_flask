@@ -36,28 +36,20 @@ def create_app(config_class=None):
     def load_user(user_id):
         return db.session.get(User, int(user_id))
 
-    # Register blueprints
     from app.auth import auth_bp
     from app.dashboard import dashboard_bp
-    from app.public import public_bp
-    from app.widget import widget_bp
     from app.billing import billing_bp
     from app.landing import landing_bp
     from app.api import api_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
-    app.register_blueprint(public_bp, url_prefix="/t")
-    app.register_blueprint(widget_bp, url_prefix="/widget")
     app.register_blueprint(billing_bp, url_prefix="/billing")
     app.register_blueprint(landing_bp)
     app.register_blueprint(api_bp, url_prefix="/api/v1")
 
-    # Exempt widget and API routes from CSRF for embed usage
-    csrf.exempt(widget_bp)
     csrf.exempt(api_bp)
 
-    # Create tables if they don't exist
     with app.app_context():
         db.create_all()
 

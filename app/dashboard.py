@@ -1,179 +1,178 @@
-import re
+from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 
 from app import db
-from app.models import Space, Testimonial, Widget
+from app.models import Site, Scan, Violation
+from app.scanner import run_scan
+from app.ai_suggestions import generate_fix
 
-dashboard_bp = Blueprint("dashboard", __name__, template_folder="templates/dashboard")
+dashboard_bp = Blueprint("dashboard", __name__)
 
 
-def slugify(text):
-    text = text.lower().strip()
-    text = re.sub(r"[^\w\s-]", "", text)
-    text = re.sub(r"[\s_]+", "-", text)
-    text = re.sub(r"-+", "-", text)
-    return text[:80]
+def normalize_url(url):
+    """Ensure URL has a scheme and is valid."""
+    url = url.strip()
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    parsed = urlparse(url)
+    if not parsed.netloc:
+        return None
+    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}".rstrip("/")
 
 
 @dashboard_bp.route("/")
 @login_required
 def index():
-    spaces = current_user.spaces.order_by(Space.created_at.desc()).all()
-    return render_template("dashboard/index.html", spaces=spaces)
+    sites = current_user.sites.order_by(Site.created_at.desc()).all()
+    return render_template("dashboard/index.html", sites=sites)
 
 
-@dashboard_bp.route("/spaces/new", methods=["GET", "POST"])
+@dashboard_bp.route("/sites/add", methods=["GET", "POST"])
 @login_required
-def create_space():
-    if not current_user.can_create_space():
-        flash("You've reached the maximum number of spaces for your plan. Upgrade to create more.", "error")
+def add_site():
+    if not current_user.can_add_site():
+        flash("You've reached your site limit. Upgrade your plan to add more.", "error")
         return redirect(url_for("dashboard.index"))
 
     if request.method == "POST":
+        url = request.form.get("url", "").strip()
         name = request.form.get("name", "").strip()
-        website_url = request.form.get("website_url", "").strip()
-        header_text = request.form.get("header_text", "").strip()
 
-        if not name or len(name) < 2:
-            flash("Space name must be at least 2 characters.", "error")
-            return render_template("dashboard/create_space.html", name=name, website_url=website_url)
+        normalized = normalize_url(url)
+        if not normalized:
+            flash("Please enter a valid URL.", "error")
+            return render_template("dashboard/add_site.html", url=url, name=name)
 
-        slug = slugify(name)
-        # Ensure unique slug
-        existing = Space.query.filter_by(slug=slug).first()
+        if not name:
+            name = urlparse(normalized).netloc
+
+        # Check for duplicate
+        existing = Site.query.filter_by(user_id=current_user.id, url=normalized).first()
         if existing:
-            slug = f"{slug}-{Space.query.count() + 1}"
+            flash("You've already added this website.", "error")
+            return render_template("dashboard/add_site.html", url=url, name=name)
 
-        space = Space(
-            name=name,
-            slug=slug,
-            user_id=current_user.id,
-            website_url=website_url or None,
-            header_text=header_text or "Share your experience with us!",
-        )
-        db.session.add(space)
+        site = Site(url=normalized, name=name, user_id=current_user.id)
+        db.session.add(site)
+        db.session.commit()
 
-        # Create default Wall of Love widget
-        widget = Widget(space=space, widget_type="wall", theme="light")
-        db.session.add(widget)
+        flash(f"Website added! Running your first scan...", "success")
+        return redirect(url_for("dashboard.run_site_scan", site_uid=site.uid))
+
+    return render_template("dashboard/add_site.html")
+
+
+@dashboard_bp.route("/sites/<site_uid>")
+@login_required
+def site_detail(site_uid):
+    site = Site.query.filter_by(uid=site_uid, user_id=current_user.id).first_or_404()
+    scans = site.scans.order_by(Scan.created_at.desc()).limit(10).all()
+    latest = site.latest_scan()
+    return render_template("dashboard/site_detail.html", site=site, scans=scans, latest=latest)
+
+
+@dashboard_bp.route("/sites/<site_uid>/scan", methods=["GET", "POST"])
+@login_required
+def run_site_scan(site_uid):
+    site = Site.query.filter_by(uid=site_uid, user_id=current_user.id).first_or_404()
+
+    limits = current_user.get_plan_limits()
+    max_pages = limits["max_pages"]
+
+    # Create scan record
+    scan = Scan(site_id=site.id, status="running")
+    db.session.add(scan)
+    db.session.commit()
+
+    try:
+        scan_result = run_scan(site.url, max_pages=max_pages)
+
+        scan.status = "completed"
+        scan.score = scan_result.score
+        scan.pages_scanned = len(scan_result.pages)
+        scan.total_violations = scan_result.total_violations
+        scan.critical_count = scan_result.critical_count
+        scan.serious_count = scan_result.serious_count
+        scan.moderate_count = scan_result.moderate_count
+        scan.minor_count = scan_result.minor_count
+        scan.completed_at = datetime.now(timezone.utc)
+
+        # Save violations
+        for page in scan_result.pages:
+            for v in page.violations:
+                fix_text = ""
+                if current_user.has_ai_fixes():
+                    fix_text = generate_fix(v.rule_id, v.description, v.element_html)
+                else:
+                    from app.ai_suggestions import RULE_FIXES
+                    rule_fix = RULE_FIXES.get(v.rule_id, {})
+                    fix_text = rule_fix.get("fix_template", "")
+
+                violation = Violation(
+                    scan_id=scan.id,
+                    rule_id=v.rule_id,
+                    rule_name=v.rule_name,
+                    severity=v.severity,
+                    wcag_criteria=v.wcag_criteria,
+                    description=v.description,
+                    element_html=v.element_html,
+                    page_url=page.url,
+                    fix_suggestion=fix_text,
+                    selector=v.selector,
+                )
+                db.session.add(violation)
+
+        # Update site
+        site.compliance_score = scan_result.score
+        site.last_scan_at = datetime.now(timezone.utc)
 
         db.session.commit()
 
-        flash(f'Space "{name}" created! Share the collection link to start gathering testimonials.', "success")
-        return redirect(url_for("dashboard.space_detail", space_uid=space.uid))
+    except Exception as e:
+        scan.status = "failed"
+        db.session.commit()
+        flash(f"Scan failed: {str(e)}", "error")
+        return redirect(url_for("dashboard.site_detail", site_uid=site.uid))
 
-    return render_template("dashboard/create_space.html")
+    return redirect(url_for("dashboard.scan_results", scan_uid=scan.uid))
 
 
-@dashboard_bp.route("/spaces/<space_uid>")
+@dashboard_bp.route("/scans/<scan_uid>")
 @login_required
-def space_detail(space_uid):
-    space = Space.query.filter_by(uid=space_uid, user_id=current_user.id).first_or_404()
-    status_filter = request.args.get("status", "all")
+def scan_results(scan_uid):
+    scan = Scan.query.filter_by(uid=scan_uid).first_or_404()
+    site = Site.query.filter_by(id=scan.site_id, user_id=current_user.id).first_or_404()
 
-    if status_filter == "pending":
-        testimonials = space.pending_testimonials().order_by(Testimonial.created_at.desc()).all()
-    elif status_filter == "approved":
-        testimonials = space.approved_testimonials().order_by(Testimonial.created_at.desc()).all()
+    severity_filter = request.args.get("severity", "all")
+    if severity_filter != "all":
+        violations = scan.violations.filter_by(severity=severity_filter).all()
     else:
-        testimonials = space.testimonials.order_by(Testimonial.created_at.desc()).all()
-
-    widgets = space.widgets.all()
-    collect_url = f"{current_app.config['APP_URL']}/t/{space.slug}"
+        violations = scan.violations.order_by(
+            db.case(
+                (Violation.severity == "critical", 0),
+                (Violation.severity == "serious", 1),
+                (Violation.severity == "moderate", 2),
+                else_=3,
+            )
+        ).all()
 
     return render_template(
-        "dashboard/space_detail.html",
-        space=space,
-        testimonials=testimonials,
-        widgets=widgets,
-        collect_url=collect_url,
-        status_filter=status_filter,
+        "dashboard/scan_results.html",
+        scan=scan,
+        site=site,
+        violations=violations,
+        severity_filter=severity_filter,
     )
 
 
-@dashboard_bp.route("/spaces/<space_uid>/edit", methods=["GET", "POST"])
+@dashboard_bp.route("/sites/<site_uid>/delete", methods=["POST"])
 @login_required
-def edit_space(space_uid):
-    space = Space.query.filter_by(uid=space_uid, user_id=current_user.id).first_or_404()
-
-    if request.method == "POST":
-        name = request.form.get("name", "").strip()
-        website_url = request.form.get("website_url", "").strip()
-        header_text = request.form.get("header_text", "").strip()
-        thank_you_text = request.form.get("thank_you_text", "").strip()
-
-        if not name or len(name) < 2:
-            flash("Space name must be at least 2 characters.", "error")
-            return render_template("dashboard/edit_space.html", space=space)
-
-        space.name = name
-        space.website_url = website_url or None
-        space.header_text = header_text or space.header_text
-        space.thank_you_text = thank_you_text or space.thank_you_text
-        db.session.commit()
-
-        flash("Space updated.", "success")
-        return redirect(url_for("dashboard.space_detail", space_uid=space.uid))
-
-    return render_template("dashboard/edit_space.html", space=space)
-
-
-@dashboard_bp.route("/spaces/<space_uid>/delete", methods=["POST"])
-@login_required
-def delete_space(space_uid):
-    space = Space.query.filter_by(uid=space_uid, user_id=current_user.id).first_or_404()
-    db.session.delete(space)
+def delete_site(site_uid):
+    site = Site.query.filter_by(uid=site_uid, user_id=current_user.id).first_or_404()
+    db.session.delete(site)
     db.session.commit()
-    flash(f'Space "{space.name}" deleted.', "info")
+    flash(f"Site removed.", "info")
     return redirect(url_for("dashboard.index"))
-
-
-@dashboard_bp.route("/testimonials/<testimonial_uid>/approve", methods=["POST"])
-@login_required
-def approve_testimonial(testimonial_uid):
-    testimonial = Testimonial.query.filter_by(uid=testimonial_uid).first_or_404()
-    space = Space.query.filter_by(id=testimonial.space_id, user_id=current_user.id).first_or_404()
-    testimonial.status = "approved"
-    db.session.commit()
-    flash("Testimonial approved.", "success")
-    return redirect(url_for("dashboard.space_detail", space_uid=space.uid))
-
-
-@dashboard_bp.route("/testimonials/<testimonial_uid>/reject", methods=["POST"])
-@login_required
-def reject_testimonial(testimonial_uid):
-    testimonial = Testimonial.query.filter_by(uid=testimonial_uid).first_or_404()
-    space = Space.query.filter_by(id=testimonial.space_id, user_id=current_user.id).first_or_404()
-    testimonial.status = "rejected"
-    db.session.commit()
-    flash("Testimonial rejected.", "info")
-    return redirect(url_for("dashboard.space_detail", space_uid=space.uid))
-
-
-@dashboard_bp.route("/testimonials/<testimonial_uid>/star", methods=["POST"])
-@login_required
-def toggle_star(testimonial_uid):
-    testimonial = Testimonial.query.filter_by(uid=testimonial_uid).first_or_404()
-    Space.query.filter_by(id=testimonial.space_id, user_id=current_user.id).first_or_404()
-    testimonial.is_starred = not testimonial.is_starred
-    db.session.commit()
-    return redirect(request.referrer or url_for("dashboard.index"))
-
-
-@dashboard_bp.route("/testimonials/<testimonial_uid>/delete", methods=["POST"])
-@login_required
-def delete_testimonial(testimonial_uid):
-    testimonial = Testimonial.query.filter_by(uid=testimonial_uid).first_or_404()
-    space = Space.query.filter_by(id=testimonial.space_id, user_id=current_user.id).first_or_404()
-    db.session.delete(testimonial)
-    db.session.commit()
-    flash("Testimonial deleted.", "info")
-    return redirect(url_for("dashboard.space_detail", space_uid=space.uid))
-
-
-@dashboard_bp.route("/settings")
-@login_required
-def settings():
-    return render_template("dashboard/settings.html")

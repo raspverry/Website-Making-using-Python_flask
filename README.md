@@ -1,41 +1,47 @@
-# TestiFlow
+# PageGuard - AI Web Accessibility Compliance Scanner
 
-**Collect, manage, and showcase customer testimonials.**
+**Is your website ADA compliant? The deadline is April 24, 2026.**
 
-TestiFlow is a SaaS platform that helps businesses collect customer testimonials through shareable forms and display them on their websites with beautiful embeddable widgets.
+PageGuard scans your website for WCAG 2.2 Level AA accessibility violations, generates a compliance report with scores, and provides AI-powered fix suggestions -- all in under 60 seconds.
+
+96% of websites fail basic accessibility requirements. Non-compliance penalties: up to $150,000 per violation.
 
 ## Features
 
-- **Shareable Collection Forms** - Branded forms that make it easy for customers to submit testimonials
-- **Approval Workflow** - Review, approve, or reject testimonials before they go live
-- **Embeddable Widgets** - Wall of Love, Carousel, and Badge widgets with one-line embed code
-- **Star Ratings** - Collect and display star ratings alongside testimonials
-- **Custom Branding** - Remove TestiFlow branding on paid plans
-- **REST API** - Full API access for custom integrations
-- **Stripe Billing** - Built-in subscription management
+- **Instant Scanning** - Enter a URL, get a compliance report in seconds
+- **WCAG 2.2 Level AA** - Checks 10+ rules covering the most common violations
+- **Compliance Score** - 0-100 score based on violation severity
+- **AI Fix Suggestions** - Plain-English explanations + exact code fixes (paid plans)
+- **Multi-Page Crawling** - Automatically discovers and scans internal pages
+- **Severity Classification** - Critical, Serious, Moderate, Minor
+- **Scan History** - Track compliance over time
+- **REST API** - Programmatic access for integrations
+- **Stripe Billing** - Subscription management
 
-## Tech Stack
+## What We Check
 
-- **Backend:** Python / Flask
-- **Database:** SQLite (dev) / PostgreSQL (prod)
-- **Frontend:** Tailwind CSS (via CDN)
-- **Payments:** Stripe
-- **Auth:** Flask-Login
+| Rule | WCAG | Severity |
+|------|------|----------|
+| Missing image alt text | 1.1.1 | Critical |
+| Missing form labels | 1.3.1 | Critical |
+| Zoom prevention | 1.4.4 | Critical |
+| Missing page language | 3.1.1 | Serious |
+| Missing page title | 2.4.2 | Serious |
+| Empty links | 2.4.4 | Serious |
+| Empty buttons | 4.1.2 | Serious |
+| Heading structure | 1.3.1 | Moderate |
+| Skip navigation | 2.4.1 | Moderate |
+| Missing landmarks | 4.1.2 | Moderate |
 
 ## Quick Start
 
 ```bash
-# Install dependencies
 pip install -r requirements.txt
-
-# Copy environment config
 cp .env.example .env
-
-# Run the development server
 python run.py
 ```
 
-The app will be available at `http://localhost:5000`.
+Visit `http://localhost:5000`.
 
 ## Running Tests
 
@@ -43,30 +49,23 @@ The app will be available at `http://localhost:5000`.
 pytest tests/ -v
 ```
 
-## Project Structure
-
-```
-app/
-├── __init__.py       # Flask app factory
-├── models.py         # Database models (User, Space, Testimonial, Widget, Subscription)
-├── auth.py           # Authentication (signup, login, logout)
-├── dashboard.py      # Dashboard (manage spaces & testimonials)
-├── public.py         # Public testimonial collection forms
-├── widget.py         # Embeddable widget rendering & data API
-├── billing.py        # Stripe subscription management
-├── landing.py        # Landing page & pricing
-├── api/              # REST API
-└── templates/        # Jinja2 HTML templates
-```
-
 ## Pricing
 
-| Plan | Price | Spaces | Testimonials |
-|------|-------|--------|-------------|
-| Free | $0/mo | 1 | 10 per space |
-| Starter | $19/mo | 3 | 50 per space |
-| Pro | $49/mo | 10 | Unlimited |
-| Agency | $99/mo | Unlimited | Unlimited |
+| Plan | Price | Sites | Scans | AI Fixes |
+|------|-------|-------|-------|----------|
+| Free | $0/mo | 1 | 1/month | No |
+| Starter | $29/mo | 1 | Weekly | Yes |
+| Pro | $79/mo | 5 | Daily | Yes |
+| Agency | $199/mo | 20 | Unlimited | Yes |
+
+## Tech Stack
+
+- Python / Flask 3.x
+- SQLAlchemy + SQLite (dev) / PostgreSQL (prod)
+- BeautifulSoup4 + lxml (HTML parsing & WCAG checks)
+- OpenAI API (AI fix suggestions)
+- Tailwind CSS
+- Stripe (payments)
 
 ## License
 
