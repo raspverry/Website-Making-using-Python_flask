@@ -83,3 +83,13 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class CheckoutRequest(BaseModel):
+    plan: str
+
+
+class SubscriptionResponse(BaseModel):
+    plan: str
+    status: str
+    current_period_end: str | None = None

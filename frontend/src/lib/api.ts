@@ -79,6 +79,21 @@ class ApiClient {
   getSummary(siteUid: string) {
     return this.request<{ summary: string; score: number; total_violations: number }>(`/api/v1/sites/${siteUid}/agent/summary`);
   }
+
+  // Billing
+  createCheckout(plan: string) {
+    return this.request<{ checkout_url: string; session_id: string }>(`/api/v1/billing/checkout?plan=${encodeURIComponent(plan)}`, {
+      method: 'POST',
+    });
+  }
+
+  createPortal() {
+    return this.request<{ portal_url: string }>('/api/v1/billing/portal', { method: 'POST' });
+  }
+
+  getSubscription() {
+    return this.request<{ plan: string; status: string; current_period_end: string | null }>('/api/v1/billing/subscription');
+  }
 }
 
 export const api = new ApiClient();

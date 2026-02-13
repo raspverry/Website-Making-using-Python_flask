@@ -45,7 +45,7 @@ export default function AgentPage({ params }: { params: Promise<{ uid: string }>
 
       <h1 className="text-2xl font-bold text-gray-900 mb-6">AI Accessibility Agent</h1>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4 min-h-[400px] max-h-[500px] overflow-y-auto space-y-3">
+      <div aria-live="polite" className="bg-white rounded-xl border border-gray-200 p-6 mb-4 min-h-[400px] max-h-[500px] overflow-y-auto space-y-3">
         {messages.length === 0 && (
           <p className="text-gray-400 text-center py-10">Ask a question about your site&apos;s accessibility issues.</p>
         )}
@@ -64,7 +64,9 @@ export default function AgentPage({ params }: { params: Promise<{ uid: string }>
       </div>
 
       <div className="flex gap-2">
+        <label htmlFor="agent-question" className="sr-only">Ask a question about your site&apos;s accessibility</label>
         <input
+          id="agent-question"
           type="text"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}

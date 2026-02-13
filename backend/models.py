@@ -78,3 +78,18 @@ class Violation(Base):
     selector = Column(String(500))
     
     scan = relationship("Scan", back_populates="violations")
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    stripe_subscription_id = Column(String(255), unique=True)
+    stripe_price_id = Column(String(255))
+    plan = Column(String(20), nullable=False, default="free")
+    status = Column(String(20), nullable=False, default="active")  # active, canceled, past_due
+    current_period_end = Column(DateTime)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    owner = relationship("User", backref="subscription")

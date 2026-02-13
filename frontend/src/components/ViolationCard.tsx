@@ -19,7 +19,7 @@ export function ViolationCard({ violation }: ViolationCardProps) {
           <h3 className="font-medium">{violation.rule_name}</h3>
           <p className="text-sm mt-1 opacity-80">{violation.description}</p>
         </div>
-        <span className="text-xs font-semibold uppercase px-2 py-0.5 rounded-full bg-white/50">{violation.severity}</span>
+        <span className="text-xs font-semibold uppercase px-2 py-0.5 rounded-full bg-white/50" aria-label={`Severity: ${violation.severity}`}>{violation.severity}</span>
       </div>
       {violation.wcag_criteria && (
         <p className="mt-2 text-xs font-medium opacity-70">WCAG {violation.wcag_criteria}</p>

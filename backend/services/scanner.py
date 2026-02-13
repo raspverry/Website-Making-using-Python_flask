@@ -5,12 +5,15 @@ Scans HTML pages for WCAG 2.2 Level AA violations using BeautifulSoup.
 Checks the 10 most common accessibility issues that affect 95%+ of websites.
 """
 
+import logging
 import re
 from urllib.parse import urljoin, urlparse
 from dataclasses import dataclass, field
 
 import requests
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -254,6 +257,95 @@ def check_page(url, html):
                 element_html=str(meta_viewport)[:200],
                 selector='meta[name="viewport"]',
             ))
+
+    # 11. Color contrast detection (WCAG 1.4.3)
+    # Static analysis can detect inline styles with low-contrast patterns
+    for el in soup.find_all(style=True):
+        style_str = el.get("style", "")
+        colors_found = re.findall(r'color\s*:\s*(#[0-9a-fA-F]{3,6}|(?:rgb|rgba)\([^)]+\)|white|black|gray|grey)', style_str)
+        bg_found = re.findall(r'background(?:-color)?\s*:\s*(#[0-9a-fA-F]{3,6}|(?:rgb|rgba)\([^)]+\)|white|black|gray|grey)', style_str)
+        if colors_found and bg_found:
+            fg = colors_found[0].lower()
+            bg = bg_found[0].lower()
+            # Flag obvious low-contrast combinations
+            low_contrast_pairs = [
+                ("white", "white"), ("#fff", "#fff"), ("#ffffff", "#ffffff"),
+                ("gray", "gray"), ("grey", "grey"),
+                ("#ccc", "#ddd"), ("#ddd", "#eee"), ("#eee", "#fff"),
+            ]
+            if (fg, bg) in low_contrast_pairs or fg == bg:
+                violations.append(ViolationResult(
+                    rule_id="color-contrast",
+                    rule_name="Elements must have sufficient color contrast",
+                    severity="serious",
+                    wcag_criteria="1.4.3",
+                    description=f"Inline styles set foreground '{fg}' and background '{bg}' which may not meet WCAG AA contrast ratio of 4.5:1.",
+                    element_html=str(el)[:200],
+                    selector=_build_selector(el),
+                ))
+    # Also flag light-on-light text patterns in common classes
+    for el in soup.find_all(class_=True):
+        class_str = " ".join(el.get("class", []))
+        if re.search(r'text-gray-[23]00|text-white', class_str) and re.search(r'bg-white|bg-gray-[12]00', class_str):
+            violations.append(ViolationResult(
+                rule_id="color-contrast",
+                rule_name="Elements must have sufficient color contrast",
+                severity="serious",
+                wcag_criteria="1.4.3",
+                description="Element has utility classes suggesting light text on a light background, which may fail WCAG AA contrast requirements.",
+                element_html=str(el)[:200],
+                selector=_build_selector(el),
+            ))
+
+    # 12. Interactive elements missing accessible names (WCAG 4.1.2)
+    for el in soup.find_all(["input", "select", "textarea"]):
+        if el.get("type") in ("hidden", "submit", "button", "reset", "image"):
+            continue
+        # Already covered by form-label check, but also check ARIA specifically
+        if el.get("role") and not el.get("aria-label") and not el.get("aria-labelledby"):
+            title = el.get("title")
+            if not title:
+                violations.append(ViolationResult(
+                    rule_id="aria-input-name",
+                    rule_name="ARIA input fields must have accessible names",
+                    severity="serious",
+                    wcag_criteria="4.1.2",
+                    description="Interactive element with a role attribute is missing an accessible name (aria-label, aria-labelledby, or title).",
+                    element_html=str(el)[:200],
+                    selector=_build_selector(el),
+                ))
+
+    # Check custom interactive elements (divs/spans with click handlers or roles)
+    interactive_roles = {"button", "link", "tab", "menuitem", "checkbox", "radio", "switch", "slider", "textbox", "combobox"}
+    for el in soup.find_all(attrs={"role": True}):
+        role = el.get("role", "").lower()
+        if role in interactive_roles:
+            text = el.get_text(strip=True)
+            aria = el.get("aria-label") or el.get("aria-labelledby") or el.get("title")
+            if not text and not aria:
+                violations.append(ViolationResult(
+                    rule_id="aria-interactive-name",
+                    rule_name="Interactive ARIA elements must have accessible names",
+                    severity="critical",
+                    wcag_criteria="4.1.2",
+                    description=f"Element with role='{role}' has no accessible name. Screen reader users cannot identify this control.",
+                    element_html=str(el)[:200],
+                    selector=_build_selector(el),
+                ))
+
+    # 13. Auto-playing media without controls (WCAG 1.4.2)
+    for media in soup.find_all(["audio", "video"]):
+        if media.get("autoplay") is not None:
+            if media.get("muted") is None:
+                violations.append(ViolationResult(
+                    rule_id="media-autoplay",
+                    rule_name="Auto-playing media must be muted or have controls",
+                    severity="serious",
+                    wcag_criteria="1.4.2",
+                    description="Media element auto-plays without being muted. This can be disorienting for screen reader users and disruptive for all users.",
+                    element_html=str(media)[:200],
+                    selector=_build_selector(media),
+                ))
 
     page_result = PageResult(url=url, violations=violations)
     return page_result

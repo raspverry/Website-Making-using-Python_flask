@@ -16,10 +16,16 @@ class Settings:
     AI_MODEL: str = os.getenv("AI_MODEL", "gpt-5-mini")
     
     # Auth
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-secret-change-in-production")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     
-    # Stripe / LemonSqueezy
+    # Stripe
     STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "")
+    STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    STRIPE_PRICE_IDS: dict = {
+        "starter": os.getenv("STRIPE_PRICE_STARTER", "price_starter"),
+        "pro": os.getenv("STRIPE_PRICE_PRO", "price_pro"),
+        "agency": os.getenv("STRIPE_PRICE_AGENCY", "price_agency"),
+    }
     
     # CORS
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
@@ -34,6 +40,14 @@ class Settings:
         "pro": {"sites": 5, "scans_per_month": 30, "max_pages": 50, "ai_fixes": True},
         "agency": {"sites": 20, "scans_per_month": -1, "max_pages": 100, "ai_fixes": True},
     }
+
+
+    def validate(self):
+        """Validate critical settings. Call on startup."""
+        if not self.SECRET_KEY:
+            import warnings
+            warnings.warn("SECRET_KEY not set! Using insecure default for development only.")
+            self.SECRET_KEY = "dev-only-insecure-key-do-not-use-in-production"
 
 
 settings = Settings()

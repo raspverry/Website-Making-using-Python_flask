@@ -72,10 +72,16 @@ export default function DashboardPage() {
       {showAdd && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Add a Website</h2>
-          {addError && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{addError}</div>}
-          <form onSubmit={handleAddSite} className="flex gap-3">
-            <input type="url" value={newUrl} onChange={(e) => setNewUrl(e.target.value)} required placeholder="https://example.com" className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-            <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Site name (optional)" className="w-48 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+          {addError && <div role="alert" className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{addError}</div>}
+          <form onSubmit={handleAddSite} className="flex flex-wrap gap-3 items-end">
+            <div className="flex-1 min-w-[200px]">
+              <label htmlFor="site-url" className="block text-sm font-medium text-gray-700 mb-1">Website URL</label>
+              <input id="site-url" type="url" value={newUrl} onChange={(e) => setNewUrl(e.target.value)} required placeholder="https://example.com" className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            </div>
+            <div className="w-48">
+              <label htmlFor="site-name" className="block text-sm font-medium text-gray-700 mb-1">Site name <span className="text-gray-400 font-normal">(optional)</span></label>
+              <input id="site-name" type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="My Website" className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            </div>
             <button type="submit" disabled={adding} className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50">{adding ? 'Adding...' : 'Add'}</button>
             <button type="button" onClick={() => setShowAdd(false)} className="text-gray-500 px-4 py-2.5 rounded-lg text-sm hover:bg-gray-100">Cancel</button>
           </form>

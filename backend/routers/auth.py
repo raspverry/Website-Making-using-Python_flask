@@ -2,13 +2,14 @@ from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from backend.config import settings
 from backend.database import get_db
 from backend.models import User
 from backend.schemas import UserCreate, UserResponse, LoginRequest
+from backend.middleware import limiter
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -45,7 +46,8 @@ def get_current_user(db: Session, token: str) -> User:
 
 
 @router.post("/signup")
-def signup(body: UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def signup(request: Request, body: UserCreate, db: Session = Depends(get_db)):
     if not body.email or not body.password or not body.name:
         raise HTTPException(status_code=400, detail="All fields are required")
     if len(body.password) < 8:
@@ -73,7 +75,8 @@ def signup(body: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login")
-def login(body: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")

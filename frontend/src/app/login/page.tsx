@@ -33,7 +33,7 @@ export default function LoginPage() {
       <div className="bg-white p-8 rounded-2xl border border-gray-200 w-full max-w-md">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Log in to PageGuard</h1>
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
+          <div role="alert" className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

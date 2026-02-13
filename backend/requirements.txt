@@ -11,3 +11,6 @@ beautifulsoup4>=4.12
 lxml>=5.0
 pyjwt>=2.8
 bcrypt>=4.0
+stripe>=8.0
+reportlab>=4.0
+slowapi>=0.1.9

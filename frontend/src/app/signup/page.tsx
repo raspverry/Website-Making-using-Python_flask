@@ -39,7 +39,7 @@ export default function SignupPage() {
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Create your account</h1>
         <p className="text-sm text-gray-500 mb-6">Start scanning your website for free</p>
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
+          <div role="alert" className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
