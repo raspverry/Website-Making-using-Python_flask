@@ -6,6 +6,12 @@ We are building this in February 2026. Thousands of businesses are panicking RIG
 95.9% of websites fail basic WCAG requirements. Non-compliance penalties: up to $150,000 per violation.
 This is not "nice to have" - it's "fix this or get sued."
 
+## Project Documents
+- **BUSINESS_PLAN.md** - 사업계획서 (시장, 수익모델, GTM 전략, 재무전망)
+- **prd.md** - Product Requirements Document (기능 명세, 데이터 모델, API 스펙)
+- **ROADMAP.md** - 프로젝트 로드맵 (Phase 1-5, 마일스톤, 일정)
+- **TECH_STACK.md** - 기술 스택 문서 (아키텍처, 의존성, 스케일링)
+
 ## Revenue Target
 - **Goal:** $1,000 MRR (Monthly Recurring Revenue) within 60 days of launch
 - **Path:** 13-35 customers at $29-79/month
