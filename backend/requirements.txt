@@ -9,3 +9,5 @@ openai>=1.60
 requests>=2.32
 beautifulsoup4>=4.12
 lxml>=5.0
+pyjwt>=2.8
+bcrypt>=4.0

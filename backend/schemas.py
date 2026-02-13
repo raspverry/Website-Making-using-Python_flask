@@ -70,11 +70,16 @@ class UserCreate(BaseModel):
     name: str
 
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
 class UserResponse(BaseModel):
     id: int
     email: str
     name: str
     plan: str
-    
+
     class Config:
         from_attributes = True

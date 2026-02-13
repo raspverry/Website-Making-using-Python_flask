@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import Link from 'next/link';
+import { AuthNav } from '@/components/AuthNav';
 
 export const metadata: Metadata = {
   title: 'PageGuard - AI Web Accessibility Compliance Scanner',
@@ -22,13 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <span className="text-xl font-bold text-gray-900">PageGuard</span>
                 </Link>
               </div>
-              <div className="flex items-center space-x-4">
-                <Link href="/pricing" className="text-gray-600 hover:text-gray-900 text-sm font-medium">Pricing</Link>
-                <Link href="/login" className="text-gray-600 hover:text-gray-900 text-sm font-medium">Log in</Link>
-                <Link href="/signup" className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
-                  Scan Free
-                </Link>
-              </div>
+              <AuthNav />
             </div>
           </div>
         </nav>

@@ -1,38 +1,72 @@
 import { config } from './config';
+import type { Site, Scan, Violation } from '@/types';
+
+export interface ScanResult {
+  scan: Scan;
+  violations: Violation[];
+}
+
+export interface ApiError {
+  detail: string;
+}
 
 class ApiClient {
   private baseUrl: string;
+  private token: string | null = null;
 
   constructor() {
     this.baseUrl = config.apiUrl;
   }
 
+  setToken(token: string | null) {
+    this.token = token;
+  }
+
   private async request<T>(path: string, options?: RequestInit): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-    });
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options?.headers as Record<string, string>),
+    };
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+    const res = await fetch(`${this.baseUrl}${path}`, { ...options, headers });
     if (!res.ok) {
-      throw new Error(`API error: ${res.status}`);
+      const error = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+      throw new Error(error.detail || `API error: ${res.status}`);
     }
     return res.json();
   }
 
+  // Auth
+  async signup(email: string, password: string, name: string) {
+    return this.request<{ access_token: string; user: { id: number; email: string; name: string; plan: string } }>('/api/v1/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, name }),
+    });
+  }
+
+  async login(email: string, password: string) {
+    return this.request<{ access_token: string; user: { id: number; email: string; name: string; plan: string } }>('/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+  }
+
   // Sites
-  getSites() { return this.request<any[]>('/api/v1/sites'); }
-  getSite(uid: string) { return this.request<any>(`/api/v1/sites/${uid}`); }
+  getSites() { return this.request<Site[]>('/api/v1/sites'); }
+  getSite(uid: string) { return this.request<Site>(`/api/v1/sites/${uid}`); }
   createSite(url: string, name: string) {
-    return this.request<any>('/api/v1/sites', { method: 'POST', body: JSON.stringify({ url, name }) });
+    return this.request<Site>('/api/v1/sites', { method: 'POST', body: JSON.stringify({ url, name }) });
   }
 
   // Scans
   startScan(siteUid: string) {
-    return this.request<any>(`/api/v1/sites/${siteUid}/scan`, { method: 'POST' });
+    return this.request<ScanResult>(`/api/v1/sites/${siteUid}/scan`, { method: 'POST' });
   }
-  getScan(scanUid: string) { return this.request<any>(`/api/v1/scans/${scanUid}`); }
+  getLatestScan(siteUid: string) {
+    return this.request<ScanResult>(`/api/v1/sites/${siteUid}/latest-scan`);
+  }
 
   // Agent
   askAgent(siteUid: string, question: string) {
@@ -40,6 +74,10 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ question }),
     });
+  }
+
+  getSummary(siteUid: string) {
+    return this.request<{ summary: string; score: number; total_violations: number }>(`/api/v1/sites/${siteUid}/agent/summary`);
   }
 }
 
