@@ -7,6 +7,8 @@ import { ScoreCircle } from '@/components/ScoreCircle';
 import { ViolationCard } from '@/components/ViolationCard';
 import type { Site, Scan, Violation } from '@/types';
 
+type SeverityFilter = 'all' | 'critical' | 'serious' | 'moderate' | 'minor';
+
 export default function SiteDetailPage({ params }: { params: Promise<{ uid: string }> }) {
   const { uid } = use(params);
   const router = useRouter();
@@ -16,6 +18,8 @@ export default function SiteDetailPage({ params }: { params: Promise<{ uid: stri
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState('');
+  const [filter, setFilter] = useState<SeverityFilter>('all');
+  const [deleting, setDeleting] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -31,7 +35,7 @@ export default function SiteDetailPage({ params }: { params: Promise<{ uid: stri
         setScan(scanData.scan);
         setViolations(scanData.violations);
       } catch {
-        // No scan yet - that's OK
+        // No scan yet
       }
     } catch {
       setError('Failed to load site data');
@@ -57,12 +61,38 @@ export default function SiteDetailPage({ params }: { params: Promise<{ uid: stri
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this site? All scan data will be permanently removed.')) return;
+    setDeleting(true);
+    try {
+      await api.deleteSite(uid);
+      router.push('/dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete site');
+      setDeleting(false);
+    }
+  };
+
+  const filtered = filter === 'all' ? violations : violations.filter((v) => v.severity === filter);
+
+  const severityCounts = {
+    critical: violations.filter((v) => v.severity === 'critical').length,
+    serious: violations.filter((v) => v.severity === 'serious').length,
+    moderate: violations.filter((v) => v.severity === 'moderate').length,
+    minor: violations.filter((v) => v.severity === 'minor').length,
+  };
+
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-64"></div>
-          <div className="h-48 bg-gray-200 rounded"></div>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="animate-pulse space-y-6">
+          <div className="h-5 bg-gray-200 rounded w-40" />
+          <div className="h-8 bg-gray-200 rounded w-64" />
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-28 bg-gray-100 rounded-xl border border-gray-200" />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -70,79 +100,199 @@ export default function SiteDetailPage({ params }: { params: Promise<{ uid: stri
 
   if (!site) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <p className="text-red-600">Site not found</p>
-        <Link href="/dashboard" className="text-blue-600 hover:underline mt-2 inline-block">Back to Dashboard</Link>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+        <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">Site not found</h2>
+        <p className="text-sm text-gray-500 mb-4">This site may have been deleted or doesn&apos;t exist.</p>
+        <Link href="/dashboard" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+          &larr; Back to Dashboard
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-        <Link href="/dashboard" className="hover:text-gray-700">Dashboard</Link>
-        <span>/</span>
-        <span className="text-gray-900">{site.name}</span>
-      </div>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-1.5 text-sm text-gray-500 mb-6" aria-label="Breadcrumb">
+        <Link href="/dashboard" className="hover:text-gray-700 transition-colors">Dashboard</Link>
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+        <span className="text-gray-900 font-medium">{site.name}</span>
+      </nav>
 
-      <div className="flex justify-between items-start mb-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{site.name}</h1>
           <p className="text-sm text-gray-500 mt-1">{site.url}</p>
         </div>
-        <div className="flex gap-3">
-          <Link href={`/dashboard/sites/${uid}/agent`} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/dashboard/sites/${uid}/agent`}
+            className="inline-flex items-center gap-1.5 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-gray-400 transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
             AI Agent
           </Link>
-          <button onClick={handleScan} disabled={scanning} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50">
-            {scanning ? 'Scanning...' : 'Run Scan'}
+          <button
+            onClick={handleScan}
+            disabled={scanning}
+            className="inline-flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50"
+          >
+            {scanning ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Scanning...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Run Scan
+              </>
+            )}
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+            aria-label="Delete site"
+            title="Delete site"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
           </button>
         </div>
       </div>
 
-      {error && <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
+      {error && (
+        <div role="alert" className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-center gap-2">
+          <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+          {error}
+        </div>
+      )}
 
       {scan ? (
         <>
+          {/* Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-            <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col items-center">
+            <div className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col items-center justify-center col-span-2 md:col-span-1">
               <ScoreCircle score={scan.score ?? 0} />
-              <p className="text-xs text-gray-500 mt-2">Compliance Score</p>
+              <p className="text-xs text-gray-500 mt-2 font-medium">Compliance Score</p>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
+            <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
               <p className="text-3xl font-bold text-gray-900">{scan.total_violations}</p>
               <p className="text-xs text-gray-500 mt-1">Total Issues</p>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
+            <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
               <p className="text-3xl font-bold text-red-600">{scan.critical_count}</p>
               <p className="text-xs text-gray-500 mt-1">Critical</p>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
+            <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
               <p className="text-3xl font-bold text-orange-500">{scan.serious_count}</p>
               <p className="text-xs text-gray-500 mt-1">Serious</p>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
+            <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
               <p className="text-3xl font-bold text-yellow-500">{scan.moderate_count + scan.minor_count}</p>
               <p className="text-xs text-gray-500 mt-1">Moderate/Minor</p>
             </div>
           </div>
 
+          {/* Scan Info */}
+          <div className="flex flex-wrap items-center gap-4 mb-6 text-sm text-gray-500">
+            <span>{scan.pages_scanned} page{scan.pages_scanned !== 1 ? 's' : ''} scanned</span>
+            {scan.completed_at && (
+              <>
+                <span className="w-1 h-1 rounded-full bg-gray-300" />
+                <span>
+                  {new Date(scan.completed_at).toLocaleDateString('en-US', {
+                    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                  })}
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Violations */}
           {violations.length > 0 && (
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Violations ({violations.length})</h2>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Violations ({filtered.length}{filter !== 'all' ? ` ${filter}` : ''})
+                </h2>
+                <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Filter violations by severity">
+                  {(['all', 'critical', 'serious', 'moderate', 'minor'] as const).map((f) => {
+                    const count = f === 'all' ? violations.length : severityCounts[f];
+                    const isActive = filter === f;
+                    return (
+                      <button
+                        key={f}
+                        onClick={() => setFilter(f)}
+                        role="radio"
+                        aria-checked={isActive}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors ${
+                          isActive
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {f} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               <div className="space-y-3">
-                {violations.map((v, i) => (
+                {filtered.map((v, i) => (
                   <ViolationCard key={i} violation={v} />
                 ))}
+                {filtered.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-8">No {filter} violations found.</p>
+                )}
               </div>
+            </div>
+          )}
+
+          {violations.length === 0 && scan.status === 'completed' && (
+            <div className="bg-green-50 rounded-xl border border-green-200 p-12 text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-green-900 mb-1">All Clear!</h3>
+              <p className="text-sm text-green-700">No accessibility violations found. Your site is looking great.</p>
             </div>
           )}
         </>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <p className="text-gray-500 mb-4">No scan results yet. Run your first scan to check accessibility compliance.</p>
-          <button onClick={handleScan} disabled={scanning} className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50">
-            {scanning ? 'Scanning...' : 'Scan Now'}
+        <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-16 text-center">
+          <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">Ready to scan</h3>
+          <p className="text-sm text-gray-500 mb-6 max-w-sm mx-auto">
+            Run your first scan to check this website for WCAG 2.2 Level AA accessibility compliance.
+          </p>
+          <button
+            onClick={handleScan}
+            disabled={scanning}
+            className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50"
+          >
+            {scanning ? 'Scanning...' : 'Start First Scan'}
           </button>
         </div>
       )}

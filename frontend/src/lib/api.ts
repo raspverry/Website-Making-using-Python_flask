@@ -60,6 +60,10 @@ class ApiClient {
     return this.request<Site>('/api/v1/sites', { method: 'POST', body: JSON.stringify({ url, name }) });
   }
 
+  deleteSite(uid: string) {
+    return this.request<{ message: string }>(`/api/v1/sites/${uid}`, { method: 'DELETE' });
+  }
+
   // Scans
   startScan(siteUid: string) {
     return this.request<ScanResult>(`/api/v1/sites/${siteUid}/scan`, { method: 'POST' });
