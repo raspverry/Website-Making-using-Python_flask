@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <h1 class="text-2xl font-bold text-gray-900 mb-8">Account Settings</h1>
+
+    <div class="bg-white rounded-xl border border-gray-200 p-8 mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Profile</h2>
+        <div class="space-y-3">
+            <div>
+                <span class="text-sm text-gray-500">Name:</span>
+                <span class="text-sm text-gray-900 ml-2">{{ current_user.name }}</span>
+            </div>
+            <div>
+                <span class="text-sm text-gray-500">Email:</span>
+                <span class="text-sm text-gray-900 ml-2">{{ current_user.email }}</span>
+            </div>
+            <div>
+                <span class="text-sm text-gray-500">Plan:</span>
+                <span class="text-sm font-medium ml-2 uppercase {% if current_user.plan == 'free' %}text-gray-600{% elif current_user.plan == 'starter' %}text-blue-600{% elif current_user.plan == 'pro' %}text-purple-600{% else %}text-amber-600{% endif %}">{{ current_user.plan }}</span>
+            </div>
+            <div>
+                <span class="text-sm text-gray-500">Member since:</span>
+                <span class="text-sm text-gray-900 ml-2">{{ current_user.created_at.strftime('%B %d, %Y') }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-200 p-8">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Subscription</h2>
+        {% if current_user.plan == 'free' %}
+        <p class="text-sm text-gray-600 mb-4">You're on the Free plan. Upgrade to unlock more features.</p>
+        <a href="{{ url_for('landing.pricing') }}" class="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 transition inline-block">
+            View Plans
+        </a>
+        {% else %}
+        <p class="text-sm text-gray-600 mb-4">You're on the {{ current_user.plan | capitalize }} plan.</p>
+        <a href="{{ url_for('billing.billing_portal') }}" class="text-brand-600 hover:text-brand-700 text-sm font-medium">
+            Manage Subscription
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

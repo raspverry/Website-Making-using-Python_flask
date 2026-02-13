@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Create Space{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-8">
+        <a href="{{ url_for('dashboard.index') }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Back to Dashboard</a>
+        <h1 class="text-2xl font-bold text-gray-900 mt-2">Create a New Space</h1>
+        <p class="text-sm text-gray-500 mt-1">A space represents a product or service you want to collect testimonials for.</p>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-200 p-8">
+        <form method="POST" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div>
+                <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Space Name *</label>
+                <input type="text" name="name" id="name" required minlength="2"
+                       value="{{ name if name is defined else '' }}"
+                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
+                       placeholder="e.g. My Awesome Product">
+                <p class="text-xs text-gray-400 mt-1">This will be shown to people submitting testimonials.</p>
+            </div>
+
+            <div>
+                <label for="website_url" class="block text-sm font-medium text-gray-700 mb-1">Website URL</label>
+                <input type="url" name="website_url" id="website_url"
+                       value="{{ website_url if website_url is defined else '' }}"
+                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
+                       placeholder="https://yourproduct.com">
+            </div>
+
+            <div>
+                <label for="header_text" class="block text-sm font-medium text-gray-700 mb-1">Collection Form Header</label>
+                <input type="text" name="header_text" id="header_text"
+                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
+                       placeholder="Share your experience with us!" value="Share your experience with us!">
+                <p class="text-xs text-gray-400 mt-1">Displayed at the top of your testimonial collection form.</p>
+            </div>
+
+            <button type="submit"
+                    class="w-full bg-brand-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-brand-700 transition focus:ring-2 focus:ring-offset-2 focus:ring-brand-500">
+                Create Space
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

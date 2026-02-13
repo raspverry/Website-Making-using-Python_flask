@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Share Your Experience - {{ space.name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-lg w-full">
+        <div class="bg-white rounded-2xl shadow-lg p-8">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <span class="text-indigo-700 font-bold text-2xl">{{ space.name[0].upper() }}</span>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-900">{{ space.name }}</h1>
+                <p class="text-gray-500 mt-2">{{ space.header_text }}</p>
+            </div>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="mb-4 p-3 rounded-lg text-sm {% if category == 'error' %}bg-red-50 text-red-700{% else %}bg-green-50 text-green-700{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <!-- Form -->
+            <form method="POST" class="space-y-5">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div>
+                    <label for="author_name" class="block text-sm font-medium text-gray-700 mb-1">Your Name *</label>
+                    <input type="text" name="author_name" id="author_name" required minlength="2"
+                           value="{{ author_name if author_name is defined else '' }}"
+                           class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                           placeholder="Jane Smith">
+                </div>
+
+                <div>
+                    <label for="author_email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" name="author_email" id="author_email"
+                           value="{{ author_email if author_email is defined else '' }}"
+                           class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                           placeholder="jane@example.com">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="author_title" class="block text-sm font-medium text-gray-700 mb-1">Your Title</label>
+                        <input type="text" name="author_title" id="author_title"
+                               value="{{ author_title if author_title is defined else '' }}"
+                               class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                               placeholder="CEO">
+                    </div>
+                    <div>
+                        <label for="company" class="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                        <input type="text" name="company" id="company"
+                               value="{{ company if company is defined else '' }}"
+                               class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                               placeholder="Acme Inc.">
+                    </div>
+                </div>
+
+                <!-- Star Rating -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Rating</label>
+                    <div class="flex space-x-2" id="star-rating">
+                        {% for i in range(1, 6) %}
+                        <button type="button" onclick="setRating({{ i }})"
+                                class="star-btn text-3xl text-gray-300 hover:text-yellow-400 transition cursor-pointer"
+                                data-value="{{ i }}">&#9733;</button>
+                        {% endfor %}
+                    </div>
+                    <input type="hidden" name="rating" id="rating-input" value="">
+                </div>
+
+                <div>
+                    <label for="text" class="block text-sm font-medium text-gray-700 mb-1">Your Testimonial *</label>
+                    <textarea name="text" id="text" required minlength="10" rows="4"
+                              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none"
+                              placeholder="Tell us about your experience...">{{ text if text is defined else '' }}</textarea>
+                </div>
+
+                <button type="submit"
+                        class="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-indigo-700 transition">
+                    Submit Testimonial
+                </button>
+            </form>
+        </div>
+
+        <p class="text-center text-xs text-gray-400 mt-4">
+            Powered by <a href="/" class="text-indigo-500 hover:text-indigo-600">TestiFlow</a>
+        </p>
+    </div>
+
+    <script>
+        function setRating(value) {
+            document.getElementById('rating-input').value = value;
+            document.querySelectorAll('.star-btn').forEach(function(btn) {
+                var btnValue = parseInt(btn.getAttribute('data-value'));
+                btn.style.color = btnValue <= value ? '#facc15' : '#d1d5db';
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: transparent; }
+
+        .tf-badge {
+            display: inline-flex; align-items: center; gap: 12px;
+            background: {% if widget.theme == 'dark' %}#1f2937{% else %}#ffffff{% endif %};
+            border: 1px solid {% if widget.theme == 'dark' %}#374151{% else %}#e5e7eb{% endif %};
+            border-radius: 12px; padding: 16px 20px;
+        }
+
+        .tf-badge-stars { display: flex; gap: 2px; }
+        .tf-badge-star { font-size: 20px; color: #facc15; }
+        .tf-badge-count { font-size: 24px; font-weight: 700; color: {% if widget.theme == 'dark' %}#f9fafb{% else %}#111827{% endif %}; }
+        .tf-badge-label { font-size: 12px; color: {% if widget.theme == 'dark' %}#9ca3af{% else %}#6b7280{% endif %}; }
+
+        .tf-branding { font-size: 10px; color: {% if widget.theme == 'dark' %}#6b7280{% else %}#9ca3af{% endif %}; margin-top: 4px; }
+        .tf-branding a { color: {% if widget.theme == 'dark' %}#818cf8{% else %}#6366f1{% endif %}; text-decoration: none; }
+    </style>
+</head>
+<body>
+    {% set avg_rating = 0 %}
+    {% set rated_count = 0 %}
+    {% for t in testimonials %}
+        {% if t.rating %}
+            {% set avg_rating = avg_rating + t.rating %}
+            {% set rated_count = rated_count + 1 %}
+        {% endif %}
+    {% endfor %}
+
+    <div class="tf-badge">
+        <div>
+            <div class="tf-badge-stars">
+                {% for i in range(5) %}
+                <span class="tf-badge-star">&#9733;</span>
+                {% endfor %}
+            </div>
+            {% if show_branding %}
+            <div class="tf-branding">via <a href="https://testiflow.com" target="_blank">TestiFlow</a></div>
+            {% endif %}
+        </div>
+        <div>
+            <div class="tf-badge-count">{{ testimonials | length }}</div>
+            <div class="tf-badge-label">reviews</div>
+        </div>
+    </div>
+</body>
+</html>
