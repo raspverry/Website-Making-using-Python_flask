@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, use } from 'react';
+import { useState, useEffect, useCallback, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
@@ -20,6 +20,34 @@ export default function SiteDetailPage({ params }: { params: Promise<{ uid: stri
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<SeverityFilter>('all');
   const [deleting, setDeleting] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
+  const startPolling = useCallback(() => {
+    stopPolling();
+    pollRef.current = setInterval(async () => {
+      try {
+        const data = await api.getLatestScan(uid);
+        if (data.scan.status === 'completed' || data.scan.status === 'failed') {
+          stopPolling();
+          setScan(data.scan);
+          setViolations(data.violations);
+          setScanning(false);
+          setSite(prev => prev ? { ...prev, compliance_score: data.scan.score } : prev);
+        }
+      } catch {
+        // Keep polling on transient errors
+      }
+    }, 3000);
+  }, [uid, stopPolling]);
+
+  useEffect(() => stopPolling, [stopPolling]);
 
   const loadData = useCallback(async () => {
     try {
@@ -34,6 +62,10 @@ export default function SiteDetailPage({ params }: { params: Promise<{ uid: stri
         const scanData = await api.getLatestScan(uid);
         setScan(scanData.scan);
         setViolations(scanData.violations);
+        if (scanData.scan.status === 'pending' || scanData.scan.status === 'running') {
+          setScanning(true);
+          startPolling();
+        }
       } catch {
         // No scan yet
       }
@@ -42,7 +74,7 @@ export default function SiteDetailPage({ params }: { params: Promise<{ uid: stri
     } finally {
       setLoading(false);
     }
-  }, [uid, router]);
+  }, [uid, router, startPolling]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -52,11 +84,10 @@ export default function SiteDetailPage({ params }: { params: Promise<{ uid: stri
     try {
       const result = await api.startScan(uid);
       setScan(result.scan);
-      setViolations(result.violations);
-      if (site) setSite({ ...site, compliance_score: result.scan.score });
+      setViolations([]);
+      startPolling();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Scan failed');
-    } finally {
       setScanning(false);
     }
   };

@@ -3,13 +3,16 @@ For MVP, this is sufficient. Migrate to Celery/ARQ when scaling beyond ~100 conc
 """
 import logging
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from typing import Callable
 
 logger = logging.getLogger(__name__)
 
 # Thread pool for background tasks (limit concurrent scans)
 _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="scan-worker")
+
+# Maximum time a single scan can run (5 minutes)
+SCAN_TIMEOUT_SECONDS = 300
 
 
 def run_in_background(func: Callable, *args, **kwargs):
@@ -22,6 +25,8 @@ def run_in_background(func: Callable, *args, **kwargs):
 def _log_errors(future):
     """Log any exceptions from background tasks."""
     try:
-        future.result()
+        future.result(timeout=0)
+    except TimeoutError:
+        pass
     except Exception as e:
         logger.error("Background task failed: %s", e, exc_info=True)

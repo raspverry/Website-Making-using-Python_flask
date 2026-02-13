@@ -1,13 +1,33 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { ScoreCircle } from '@/components/ScoreCircle';
 import type { Site } from '@/types';
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 bg-gray-200 rounded-lg w-48" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-44 bg-gray-100 rounded-xl border border-gray-200" />
+            ))}
+          </div>
+        </div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
+  );
+}
+
+function DashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -16,6 +36,21 @@ export default function DashboardPage() {
   const [addError, setAddError] = useState('');
   const [adding, setAdding] = useState(false);
   const [userName, setUserName] = useState('');
+  const [checkoutSuccess, setCheckoutSuccess] = useState(false);
+
+  const refreshUserData = useCallback(async () => {
+    try {
+      const sub = await api.getSubscription();
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        const user = JSON.parse(stored);
+        user.plan = sub.plan;
+        localStorage.setItem('user', JSON.stringify(user));
+      }
+    } catch {
+      // Subscription fetch failed, keep existing data
+    }
+  }, []);
 
   const loadSites = useCallback(async () => {
     try {
@@ -26,6 +61,15 @@ export default function DashboardPage() {
       if (stored) {
         try { setUserName(JSON.parse(stored).name); } catch { /* ignore */ }
       }
+
+      // Handle Stripe checkout success
+      if (searchParams.get('checkout') === 'success') {
+        setCheckoutSuccess(true);
+        await refreshUserData();
+        // Clean up URL
+        window.history.replaceState({}, '', '/dashboard');
+      }
+
       const data = await api.getSites();
       setSites(data);
     } catch {
@@ -33,7 +77,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [router, searchParams, refreshUserData]);
 
   useEffect(() => { loadSites(); }, [loadSites]);
 
@@ -42,11 +86,17 @@ export default function DashboardPage() {
     setAddError('');
     setAdding(true);
     try {
-      await api.createSite(newUrl, newName);
+      const site = await api.createSite(newUrl, newName);
       setShowAdd(false);
       setNewUrl('');
       setNewName('');
-      await loadSites();
+      // Auto-scan: trigger scan then navigate to site detail
+      try {
+        await api.startScan(site.uid);
+      } catch {
+        // Scan may fail (e.g., plan limit) — still navigate to the site
+      }
+      router.push(`/dashboard/sites/${site.uid}`);
     } catch (err) {
       setAddError(err instanceof Error ? err.message : 'Failed to add site');
     } finally {
@@ -93,6 +143,23 @@ export default function DashboardPage() {
           Add Website
         </button>
       </div>
+
+      {/* Checkout Success Banner */}
+      {checkoutSuccess && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
+          <svg className="w-5 h-5 text-green-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <p className="text-sm text-green-800 font-medium">
+            Plan upgraded successfully! Your new features are now active.
+          </p>
+          <button onClick={() => setCheckoutSuccess(false)} className="ml-auto text-green-600 hover:text-green-800" aria-label="Dismiss">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Add Website Form */}
       {showAdd && (

@@ -50,9 +50,21 @@ def fetch_page(url, timeout=30):
     headers = {
         "User-Agent": "PageGuard Accessibility Scanner/1.0 (+https://pageguard.dev/bot)"
     }
-    resp = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
-    resp.raise_for_status()
-    return resp.text
+    try:
+        resp = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+        resp.raise_for_status()
+        content_type = resp.headers.get("content-type", "")
+        if "text/html" not in content_type and "text/xhtml" not in content_type:
+            raise ValueError(f"Not an HTML page (content-type: {content_type})")
+        return resp.text
+    except requests.exceptions.Timeout:
+        raise ConnectionError(f"Timeout after {timeout}s fetching {url}")
+    except requests.exceptions.SSLError as e:
+        raise ConnectionError(f"SSL error for {url}: {e}")
+    except requests.exceptions.ConnectionError as e:
+        raise ConnectionError(f"Cannot connect to {url}: {e}")
+    except requests.exceptions.HTTPError as e:
+        raise ConnectionError(f"HTTP {e.response.status_code} for {url}")
 
 
 def discover_pages(base_url, html, max_pages=5):

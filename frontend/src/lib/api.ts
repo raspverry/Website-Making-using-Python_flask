@@ -98,6 +98,11 @@ class ApiClient {
   getSubscription() {
     return this.request<{ plan: string; status: string; current_period_end: string | null }>('/api/v1/billing/subscription');
   }
+
+  // Account
+  getMe() {
+    return this.request<{ id: number; email: string; name: string; plan: string }>('/api/v1/account/me');
+  }
 }
 
 export const api = new ApiClient();

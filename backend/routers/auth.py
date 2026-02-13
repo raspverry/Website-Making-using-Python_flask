@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from backend.config import settings
 from backend.database import get_db
 from backend.models import User
-from backend.schemas import UserCreate, UserResponse, LoginRequest, ResetPasswordRequest
+from backend.schemas import UserCreate, UserResponse, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest
 from backend.middleware import limiter
 from backend.services.email_service import send_welcome_email, send_password_reset_email
 
@@ -92,21 +92,34 @@ def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
     }
 
 
-# Simple in-memory token store (use Redis in production)
-_reset_tokens: dict[str, int] = {}  # token -> user_id
+# In-memory token store with expiry (use Redis in production)
+_reset_tokens: dict[str, dict] = {}  # token -> {"user_id": int, "expires": datetime}
+RESET_TOKEN_EXPIRY_MINUTES = 60
+
+
+def _cleanup_expired_tokens():
+    """Remove expired reset tokens."""
+    now = datetime.now(timezone.utc)
+    expired = [t for t, d in _reset_tokens.items() if d["expires"] < now]
+    for t in expired:
+        _reset_tokens.pop(t, None)
 
 
 @router.post("/forgot-password")
 @limiter.limit("3/minute")
-def forgot_password(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
+def forgot_password(request: Request, body: ForgotPasswordRequest, db: Session = Depends(get_db)):
     """Send password reset email."""
+    _cleanup_expired_tokens()
     user = db.query(User).filter(User.email == body.email).first()
     if not user:
         # Don't reveal whether email exists
         return {"message": "If that email is registered, we've sent a reset link."}
 
     token = secrets.token_urlsafe(32)
-    _reset_tokens[token] = user.id
+    _reset_tokens[token] = {
+        "user_id": user.id,
+        "expires": datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_EXPIRY_MINUTES),
+    }
     send_password_reset_email(user.email, token)
     return {"message": "If that email is registered, we've sent a reset link."}
 
@@ -115,13 +128,16 @@ def forgot_password(request: Request, body: LoginRequest, db: Session = Depends(
 @limiter.limit("5/minute")
 def reset_password(request: Request, body: ResetPasswordRequest, db: Session = Depends(get_db)):
     """Reset password using token from email."""
-    user_id = _reset_tokens.pop(body.token, None)
-    if not user_id:
+    _cleanup_expired_tokens()
+    token_data = _reset_tokens.pop(body.token, None)
+    if not token_data:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    if token_data["expires"] < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Reset token has expired")
     if len(body.new_password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
 
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == token_data["user_id"]).first()
     if not user:
         raise HTTPException(status_code=400, detail="User not found")
 

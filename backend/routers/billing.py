@@ -95,14 +95,15 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
 
-    if settings.STRIPE_WEBHOOK_SECRET:
-        try:
-            event = stripe.Webhook.construct_event(payload, sig_header, settings.STRIPE_WEBHOOK_SECRET)
-        except (ValueError, stripe.SignatureVerificationError) as e:
-            logger.warning("Webhook signature verification failed: %s", e)
-            raise HTTPException(status_code=400, detail="Invalid signature")
-    else:
-        event = json.loads(payload)
+    if not settings.STRIPE_WEBHOOK_SECRET:
+        logger.warning("STRIPE_WEBHOOK_SECRET not set — rejecting webhook. Set it in production!")
+        raise HTTPException(status_code=503, detail="Webhook not configured")
+
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, settings.STRIPE_WEBHOOK_SECRET)
+    except (ValueError, stripe.SignatureVerificationError) as e:
+        logger.warning("Webhook signature verification failed: %s", e)
+        raise HTTPException(status_code=400, detail="Invalid signature")
 
     event_type = event.get("type", "")
     data = event.get("data", {}).get("object", {})
