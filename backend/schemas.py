@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class SiteCreate(BaseModel):
@@ -9,17 +9,18 @@ class SiteCreate(BaseModel):
 
 
 class SiteResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     uid: str
     url: str
     name: str
     compliance_score: Optional[int]
     last_scan_at: Optional[datetime]
-    
-    class Config:
-        from_attributes = True
 
 
 class ScanResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     uid: str
     status: str
     score: Optional[int]
@@ -31,12 +32,11 @@ class ScanResponse(BaseModel):
     minor_count: int
     created_at: datetime
     completed_at: Optional[datetime]
-    
-    class Config:
-        from_attributes = True
 
 
 class ViolationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     rule_id: str
     rule_name: str
     severity: str
@@ -46,9 +46,6 @@ class ViolationResponse(BaseModel):
     page_url: Optional[str]
     fix_suggestion: Optional[str]
     selector: Optional[str]
-    
-    class Config:
-        from_attributes = True
 
 
 class ScanResultResponse(BaseModel):
@@ -76,13 +73,12 @@ class LoginRequest(BaseModel):
 
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     email: str
     name: str
     plan: str
-
-    class Config:
-        from_attributes = True
 
 
 class ResetPasswordRequest(BaseModel):
