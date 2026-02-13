@@ -12,6 +12,33 @@ This is not "nice to have" - it's "fix this or get sued."
 - **ROADMAP.md** - 프로젝트 로드맵 (Phase 1-5, 마일스톤, 일정)
 - **TECH_STACK.md** - 기술 스택 문서 (아키텍처, 의존성, 스케일링)
 
+## Multi-Agent System
+PageGuard includes a multi-agent system (`agents/`) where specialized Claude agents collaborate:
+
+| Agent | File | Role |
+|-------|------|------|
+| **Orchestrator** | `agents/orchestrator.py` | Coordinates team workflow, delegates tasks |
+| **Scanner Agent** | `agents/scanner_agent.py` | Crawls websites, detects WCAG 2.2 violations |
+| **Fix Agent** | `agents/fix_agent.py` | Generates code fixes for each violation |
+| **Report Agent** | `agents/report_agent.py` | Creates compliance reports & risk assessments |
+
+### Running the Multi-Agent System
+```bash
+# Direct audit (no API key needed for basic scan)
+python -m agents.run https://example.com
+
+# AI-orchestrated audit (requires ANTHROPIC_API_KEY)
+python -m agents.run https://example.com --ai-orchestrate
+
+# Single agent mode
+python -m agents.run https://example.com --agent scanner
+```
+
+### In-App AI Agent
+The web app also has a built-in AI agent (`app/agent.py` + `app/agent_routes.py`) accessible at
+`/agent/sites/<uid>/agent` that provides executive summaries, prioritized remediation plans,
+trend analysis, and interactive Q&A about accessibility issues.
+
 ## Revenue Target
 - **Goal:** $1,000 MRR (Monthly Recurring Revenue) within 60 days of launch
 - **Path:** 13-35 customers at $29-79/month

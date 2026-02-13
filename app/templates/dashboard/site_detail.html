@@ -9,6 +9,9 @@
             <p class="text-sm text-gray-400">{{ site.url }}</p>
         </div>
         <div class="flex space-x-3">
+            {% if latest %}
+            <a href="{{ url_for('agent.audit', site_uid=site.uid) }}" class="border border-brand-600 text-brand-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-50 transition">AI Agent</a>
+            {% endif %}
             <a href="{{ url_for('dashboard.run_site_scan', site_uid=site.uid) }}" class="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 transition">Run New Scan</a>
         </div>
     </div>

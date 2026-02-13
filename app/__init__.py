@@ -41,12 +41,14 @@ def create_app(config_class=None):
     from app.billing import billing_bp
     from app.landing import landing_bp
     from app.api import api_bp
+    from app.agent_routes import agent_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
     app.register_blueprint(billing_bp, url_prefix="/billing")
     app.register_blueprint(landing_bp)
     app.register_blueprint(api_bp, url_prefix="/api/v1")
+    app.register_blueprint(agent_bp, url_prefix="/agent")
 
     csrf.exempt(api_bp)
 
