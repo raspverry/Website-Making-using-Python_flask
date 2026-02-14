@@ -203,4 +203,8 @@ def _handle_payment_failed(invoice_data: dict, db: Session):
     if sub:
         sub.status = "past_due"
         db.commit()
-    logger.warning("Payment failed for user %s", user.id)
+
+    # Notify customer about payment failure
+    from backend.services.email_service import send_payment_failed_email
+    send_payment_failed_email(user.email, user.name)
+    logger.warning("Payment failed for user %s, notification sent", user.id)

@@ -103,6 +103,34 @@ class ApiClient {
   getMe() {
     return this.request<{ id: number; email: string; name: string; plan: string }>('/api/v1/account/me');
   }
+
+  getUsage() {
+    return this.request<{
+      plan: string;
+      sites_used: number;
+      sites_limit: number;
+      scans_used: number;
+      scans_limit: number;
+      max_pages: number;
+      ai_fixes: boolean;
+      scan_interval_hours: number;
+      next_scheduled_scan: string | null;
+    }>('/api/v1/account/usage');
+  }
+
+  // PDF report
+  async downloadReport(siteUid: string): Promise<Blob> {
+    const headers: Record<string, string> = {};
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+    const res = await fetch(`${this.baseUrl}/api/v1/sites/${siteUid}/report/pdf`, { headers });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+      throw new Error(error.detail || `API error: ${res.status}`);
+    }
+    return res.blob();
+  }
 }
 
 export const api = new ApiClient();

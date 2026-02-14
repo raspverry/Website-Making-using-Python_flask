@@ -16,6 +16,7 @@ class SiteResponse(BaseModel):
     name: str
     compliance_score: Optional[int]
     last_scan_at: Optional[datetime]
+    next_scan_at: Optional[datetime] = None
 
 
 class ScanResponse(BaseModel):

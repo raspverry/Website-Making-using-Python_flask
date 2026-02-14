@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from backend.config import settings
 from backend.database import get_db
-from backend.models import User
+from backend.models import User, PasswordResetToken
 from backend.schemas import UserCreate, UserResponse, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest
 from backend.middleware import limiter
 from backend.services.email_service import send_welcome_email, send_password_reset_email
@@ -17,6 +17,7 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 24
+RESET_TOKEN_EXPIRY_MINUTES = 60
 
 
 def hash_password(password: str) -> str:
@@ -92,35 +93,42 @@ def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
     }
 
 
-# In-memory token store with expiry (use Redis in production)
-_reset_tokens: dict[str, dict] = {}  # token -> {"user_id": int, "expires": datetime}
-RESET_TOKEN_EXPIRY_MINUTES = 60
-
-
-def _cleanup_expired_tokens():
-    """Remove expired reset tokens."""
+def _cleanup_expired_tokens(db: Session):
+    """Remove expired and used reset tokens from the database."""
     now = datetime.now(timezone.utc)
-    expired = [t for t, d in _reset_tokens.items() if d["expires"] < now]
-    for t in expired:
-        _reset_tokens.pop(t, None)
+    db.query(PasswordResetToken).filter(
+        (PasswordResetToken.expires_at < now) | (PasswordResetToken.used == 1)
+    ).delete(synchronize_session=False)
+    db.commit()
 
 
 @router.post("/forgot-password")
 @limiter.limit("3/minute")
 def forgot_password(request: Request, body: ForgotPasswordRequest, db: Session = Depends(get_db)):
     """Send password reset email."""
-    _cleanup_expired_tokens()
+    _cleanup_expired_tokens(db)
+
     user = db.query(User).filter(User.email == body.email).first()
     if not user:
         # Don't reveal whether email exists
         return {"message": "If that email is registered, we've sent a reset link."}
 
-    token = secrets.token_urlsafe(32)
-    _reset_tokens[token] = {
-        "user_id": user.id,
-        "expires": datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_EXPIRY_MINUTES),
-    }
-    send_password_reset_email(user.email, token)
+    # Invalidate any existing tokens for this user
+    db.query(PasswordResetToken).filter(
+        PasswordResetToken.user_id == user.id, PasswordResetToken.used == 0
+    ).update({"used": 1}, synchronize_session=False)
+    db.commit()
+
+    token_str = secrets.token_urlsafe(32)
+    reset_token = PasswordResetToken(
+        token=token_str,
+        user_id=user.id,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_EXPIRY_MINUTES),
+    )
+    db.add(reset_token)
+    db.commit()
+
+    send_password_reset_email(user.email, token_str)
     return {"message": "If that email is registered, we've sent a reset link."}
 
 
@@ -128,19 +136,26 @@ def forgot_password(request: Request, body: ForgotPasswordRequest, db: Session =
 @limiter.limit("5/minute")
 def reset_password(request: Request, body: ResetPasswordRequest, db: Session = Depends(get_db)):
     """Reset password using token from email."""
-    _cleanup_expired_tokens()
-    token_data = _reset_tokens.pop(body.token, None)
-    if not token_data:
+    token_record = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == body.token,
+        PasswordResetToken.used == 0,
+    ).first()
+
+    if not token_record:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
-    if token_data["expires"] < datetime.now(timezone.utc):
+    if token_record.expires_at < datetime.now(timezone.utc):
+        token_record.used = 1
+        db.commit()
         raise HTTPException(status_code=400, detail="Reset token has expired")
     if len(body.new_password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
 
-    user = db.query(User).filter(User.id == token_data["user_id"]).first()
+    user = db.query(User).filter(User.id == token_record.user_id).first()
     if not user:
         raise HTTPException(status_code=400, detail="User not found")
 
+    # Mark token as used and update password
+    token_record.used = 1
     user.password_hash = hash_password(body.new_password)
     db.commit()
     return {"message": "Password reset successfully"}

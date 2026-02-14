@@ -101,23 +101,31 @@ def _run_scheduled_scans():
                     logger.info("Site %s hit monthly scan limit, deferring", site.uid)
                     continue
 
-                # Create scan and queue it
+                # Create scan atomically — use a unique check to prevent duplicates
+                existing_pending = db.query(Scan).filter(
+                    Scan.site_id == site.id,
+                    Scan.status.in_(["pending", "running"]),
+                ).first()
+                if existing_pending:
+                    site.next_scan_at = now + timedelta(minutes=10)
+                    db.commit()
+                    continue
+
                 max_pages = limits["max_pages"]
                 has_ai = limits["ai_fixes"]
 
                 scan = Scan(site_id=site.id, status="pending")
                 db.add(scan)
+                db.flush()  # Get the scan ID without committing
+
+                # Schedule next scan BEFORE committing to avoid gap
+                site.next_scan_at = _calculate_next_scan(user.plan)
                 db.commit()
-                db.refresh(scan)
 
                 from backend.services.task_runner import run_in_background
                 from backend.services.scan_task import execute_scan
 
                 run_in_background(execute_scan, scan.id, site.id, site.url, max_pages, has_ai)
-
-                # Schedule next scan
-                site.next_scan_at = _calculate_next_scan(user.plan)
-                db.commit()
 
                 logger.info(
                     "Scheduled scan started for %s (site=%s, next=%s)",
@@ -127,9 +135,13 @@ def _run_scheduled_scans():
 
             except Exception as e:
                 logger.error("Error processing scheduled scan for site %s: %s", site.uid, e)
+                db.rollback()
                 # Push back to retry later
-                site.next_scan_at = now + timedelta(minutes=30)
-                db.commit()
+                try:
+                    site.next_scan_at = now + timedelta(minutes=30)
+                    db.commit()
+                except Exception:
+                    pass
 
     except Exception as e:
         logger.error("Scheduler error: %s", e, exc_info=True)

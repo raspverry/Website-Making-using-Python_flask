@@ -3,9 +3,9 @@ FROM python:3.11-slim AS backend
 
 WORKDIR /app
 
-# Install system dependencies for lxml
+# Install system dependencies for lxml and PostgreSQL
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libxml2-dev libxslt-dev && \
+    gcc libxml2-dev libxslt-dev libpq-dev && \
     rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt ./requirements.txt
@@ -13,10 +13,9 @@ RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 COPY backend/ ./backend/
 
-# Create data directory for SQLite (dev mode)
+# Create data directory for SQLite fallback (dev mode)
 RUN mkdir -p /app/data
 
-ENV DATABASE_URL=sqlite:////app/data/pageguard.db
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000

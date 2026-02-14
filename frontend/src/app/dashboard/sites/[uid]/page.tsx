@@ -20,6 +20,9 @@ export default function SiteDetailPage({ params }: { params: Promise<{ uid: stri
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<SeverityFilter>('all');
   const [deleting, setDeleting] = useState(false);
+  const [userPlan, setUserPlan] = useState('free');
+  const [maxPages, setMaxPages] = useState(5);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -57,6 +60,13 @@ export default function SiteDetailPage({ params }: { params: Promise<{ uid: stri
 
       const siteData = await api.getSite(uid);
       setSite(siteData);
+
+      // Get user plan info for upsell/PDF logic
+      try {
+        const usageData = await api.getUsage();
+        setUserPlan(usageData.plan);
+        setMaxPages(usageData.max_pages);
+      } catch { /* Usage may fail */ }
 
       try {
         const scanData = await api.getLatestScan(uid);
@@ -101,6 +111,25 @@ export default function SiteDetailPage({ params }: { params: Promise<{ uid: stri
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete site');
       setDeleting(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const blob = await api.downloadReport(uid);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pageguard-report-${uid}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to download report');
+    } finally {
+      setDownloadingPdf(false);
     }
   };
 
@@ -171,6 +200,18 @@ export default function SiteDetailPage({ params }: { params: Promise<{ uid: stri
             </svg>
             AI Agent
           </Link>
+          {scan && scan.status === 'completed' && (userPlan === 'pro' || userPlan === 'agency') && (
+            <button
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf}
+              className="inline-flex items-center gap-1.5 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-gray-400 transition-all disabled:opacity-50"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {downloadingPdf ? 'Downloading...' : 'PDF Report'}
+            </button>
+          )}
           <button
             onClick={handleScan}
             disabled={scanning}
@@ -272,6 +313,50 @@ export default function SiteDetailPage({ params }: { params: Promise<{ uid: stri
               </>
             )}
           </div>
+
+          {/* Upsell Banner for Free Users */}
+          {userPlan === 'free' && scan.status === 'completed' && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-blue-900">
+                    This scan analyzed {scan.pages_scanned} page{scan.pages_scanned !== 1 ? 's' : ''} (Free plan limit: {maxPages})
+                  </p>
+                  <p className="text-sm text-blue-700 mt-0.5">
+                    Your site may have additional pages with accessibility issues. Upgrade to scan up to 50 pages with weekly auto-scans and AI fix suggestions.
+                  </p>
+                </div>
+                <Link
+                  href="/pricing"
+                  className="inline-flex items-center gap-1.5 bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all shrink-0"
+                >
+                  Upgrade to Starter — $29/mo
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* PDF Upsell for Starter Users */}
+          {userPlan === 'starter' && scan.status === 'completed' && (
+            <div className="mb-6 p-3 bg-gray-50 border border-gray-200 rounded-xl flex items-center gap-3">
+              <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="text-sm text-gray-600 flex-1">
+                Need a PDF compliance report for stakeholders? <Link href="/pricing" className="text-blue-600 font-medium hover:underline">Upgrade to Pro ($79/mo)</Link> to download professional reports.
+              </p>
+            </div>
+          )}
+
+          {/* Next Scheduled Scan */}
+          {site.next_scan_at && scan.status === 'completed' && (
+            <div className="mb-6 flex items-center gap-2 text-sm text-gray-500">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Next automatic scan: {new Date(site.next_scan_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            </div>
+          )}
 
           {/* Violations */}
           {violations.length > 0 && (

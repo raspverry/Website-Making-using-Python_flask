@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.dependencies import get_authenticated_user
-from backend.models import User, Site, Subscription
+from backend.models import User, Site, Scan, Subscription
+from backend.services.plan_service import get_plan_limits
 
 logger = logging.getLogger(__name__)
 
@@ -96,3 +97,44 @@ def delete_account(
     db.commit()
     logger.info("User account deleted (GDPR erasure): user_id=%s", current_user.id)
     return {"status": "account_deleted"}
+
+
+@router.get("/usage")
+def get_usage(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_authenticated_user),
+):
+    """Get current plan usage — sites used, scans this month, limits."""
+    from datetime import datetime, timezone
+
+    limits = get_plan_limits(current_user.plan)
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    site_count = db.query(Site).filter(Site.user_id == current_user.id).count()
+    scan_count = (
+        db.query(Scan)
+        .join(Site)
+        .filter(Site.user_id == current_user.id, Scan.created_at >= month_start)
+        .count()
+    )
+
+    # Get next scheduled scan time
+    next_scan = (
+        db.query(Site.next_scan_at)
+        .filter(Site.user_id == current_user.id, Site.next_scan_at.isnot(None))
+        .order_by(Site.next_scan_at.asc())
+        .first()
+    )
+
+    return {
+        "plan": current_user.plan,
+        "sites_used": site_count,
+        "sites_limit": limits["sites"],
+        "scans_used": scan_count,
+        "scans_limit": limits["scans_per_month"],
+        "max_pages": limits["max_pages"],
+        "ai_fixes": limits["ai_fixes"],
+        "scan_interval_hours": limits.get("scan_interval_hours", 0),
+        "next_scheduled_scan": next_scan[0].isoformat() if next_scan and next_scan[0] else None,
+    }

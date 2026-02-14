@@ -9,7 +9,7 @@ from backend.database import SessionLocal
 from backend.models import Scan, Site, User, Violation
 from backend.services.scanner import run_scan
 from backend.services.ai_service import generate_fix
-from backend.services.email_service import send_scan_complete_email
+from backend.services.email_service import send_scan_complete_email, send_scan_failed_email
 from backend.services.scheduler import schedule_next_scan
 
 logger = logging.getLogger(__name__)
@@ -19,19 +19,27 @@ def execute_scan(scan_id: int, site_id: int, site_url: str, max_pages: int = 5, 
     """Execute a scan in the background. Uses its own DB session."""
     db: Session = SessionLocal()
     try:
+        # Atomically claim this scan — prevent double execution
+        rows = (
+            db.query(Scan)
+            .filter(Scan.id == scan_id, Scan.status == "pending")
+            .update({"status": "running"}, synchronize_session="fetch")
+        )
+        db.commit()
+
+        if rows == 0:
+            logger.warning("Scan %s already claimed or missing, skipping", scan_id)
+            return
+
         scan = db.query(Scan).filter(Scan.id == scan_id).first()
         site = db.query(Site).filter(Site.id == site_id).first()
         if not scan or not site:
             logger.error("Scan %s or Site %s not found", scan_id, site_id)
             return
 
-        scan.status = "running"
-        db.commit()
-
         logger.info("Starting scan for %s (scan_id=%s, max_pages=%s)", site_url, scan_id, max_pages)
         result = run_scan(site_url, max_pages=max_pages)
 
-        scan.status = "completed"
         scan.score = result.score
         scan.pages_scanned = len(result.pages)
         if result.warnings:
@@ -67,11 +75,13 @@ def execute_scan(scan_id: int, site_id: int, site_url: str, max_pages: int = 5, 
                 )
                 db.add(violation)
 
+        # Mark completed atomically
+        scan.status = "completed"
         site.compliance_score = result.score
         site.last_scan_at = datetime.now(timezone.utc)
         db.commit()
 
-        # Schedule next automatic scan based on user plan
+        # Schedule next automatic scan and send notification
         try:
             user = db.query(User).filter(User.id == site.user_id).first()
             if user:
@@ -85,10 +95,18 @@ def execute_scan(scan_id: int, site_id: int, site_url: str, max_pages: int = 5, 
     except Exception as e:
         logger.error("Scan %s failed: %s", scan_id, e, exc_info=True)
         try:
+            db.rollback()
             scan = db.query(Scan).filter(Scan.id == scan_id).first()
             if scan:
                 scan.status = "failed"
                 db.commit()
+
+            # Notify user about failure
+            site = db.query(Site).filter(Site.id == site_id).first()
+            if site:
+                user = db.query(User).filter(User.id == site.user_id).first()
+                if user:
+                    send_scan_failed_email(user.email, site.url, str(e), site.uid)
         except Exception:
             pass
     finally:

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Float
+from sqlalchemy import Column, Index, Integer, String, DateTime, Text, ForeignKey, Float
 from sqlalchemy.orm import relationship
 
 from backend.database import Base
@@ -66,7 +66,8 @@ class Scan(Base):
 
 class Violation(Base):
     __tablename__ = "violations"
-    
+    __table_args__ = (Index("ix_violations_scan_id", "scan_id"),)
+
     id = Column(Integer, primary_key=True, index=True)
     scan_id = Column(Integer, ForeignKey("scans.id"), nullable=False)
     rule_id = Column(String(50), nullable=False)
@@ -95,3 +96,14 @@ class Subscription(Base):
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     owner = relationship("User", backref="subscription")
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String(64), unique=True, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Integer, default=0)  # 0=unused, 1=used
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))

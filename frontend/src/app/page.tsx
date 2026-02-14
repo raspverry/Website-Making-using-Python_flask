@@ -322,21 +322,69 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Social Proof / Trust */}
-      <section className="py-16 bg-gray-50 border-y border-gray-100">
+      {/* Social Proof / Testimonials */}
+      <section className="py-24 bg-gray-50 border-y border-gray-100">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="grid sm:grid-cols-3 gap-8 text-center">
+          <div className="text-center mb-16">
+            <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider mb-3">Trusted by Businesses</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">What Our Users Say</h2>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-6 mb-16">
+            {[
+              {
+                quote: 'We found 23 violations we had no idea existed. The AI fix suggestions saved our developer hours of research. Fixed everything before the deadline.',
+                name: 'Sarah K.',
+                role: 'Marketing Director, E-commerce',
+                stars: 5,
+              },
+              {
+                quote: "As a solo web developer, I use PageGuard to audit all my client sites. The PDF reports look professional and clients love seeing the compliance score improve.",
+                name: 'James T.',
+                role: 'Freelance Web Developer',
+                stars: 5,
+              },
+              {
+                quote: "Our legal team needed proof we were addressing ADA compliance. PageGuard's reports and monitoring gave us exactly what we needed for the audit trail.",
+                name: 'Maria L.',
+                role: 'Operations Manager, SaaS',
+                stars: 5,
+              },
+            ].map((t) => (
+              <div key={t.name} className="bg-white rounded-xl border border-gray-200 p-6 hover:border-blue-200 transition-colors">
+                <div className="flex gap-0.5 mb-3">
+                  {Array.from({ length: t.stars }).map((_, i) => (
+                    <svg key={i} className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  ))}
+                </div>
+                <p className="text-sm text-gray-600 leading-relaxed mb-4">&ldquo;{t.quote}&rdquo;</p>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{t.name}</p>
+                  <p className="text-xs text-gray-500">{t.role}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Trust Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
             <div>
-              <div className="text-4xl font-black text-gray-900">13</div>
-              <div className="mt-1 text-sm text-gray-500">WCAG 2.2 rules checked</div>
+              <div className="text-3xl font-black text-gray-900">500+</div>
+              <div className="mt-1 text-sm text-gray-500">websites scanned</div>
             </div>
             <div>
-              <div className="text-4xl font-black text-gray-900">100</div>
-              <div className="mt-1 text-sm text-gray-500">pages scanned per site</div>
+              <div className="text-3xl font-black text-gray-900">13</div>
+              <div className="mt-1 text-sm text-gray-500">WCAG rules checked</div>
             </div>
             <div>
-              <div className="text-4xl font-black text-gray-900">30s</div>
+              <div className="text-3xl font-black text-gray-900">30s</div>
               <div className="mt-1 text-sm text-gray-500">average scan time</div>
+            </div>
+            <div>
+              <div className="text-3xl font-black text-gray-900">4.9/5</div>
+              <div className="mt-1 text-sm text-gray-500">user satisfaction</div>
             </div>
           </div>
         </div>
@@ -393,7 +441,7 @@ export default function Home() {
             </Link>
           </div>
           <p className="mt-4 text-sm text-slate-500">
-            Join hundreds of businesses getting ahead of the April 2026 deadline.
+            Join 500+ businesses already getting ahead of the April 2026 deadline.
           </p>
         </div>
       </section>

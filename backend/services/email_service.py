@@ -138,6 +138,76 @@ def send_welcome_email(to: str, name: str):
     return send_email(to, subject, html, text)
 
 
+def send_scan_failed_email(to: str, site_url: str, error_msg: str, site_uid: str):
+    """Send notification when a scan fails."""
+    subject = f"PageGuard Scan Failed: {site_url}"
+
+    html = f"""
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #2563EB; padding: 20px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">PageGuard</h1>
+        </div>
+        <div style="padding: 24px; background: #fff;">
+            <h2 style="margin-top: 0; color: #DC2626;">Scan Failed</h2>
+            <p>We were unable to complete a scan for <strong>{site_url}</strong>.</p>
+            <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 16px; margin: 16px 0;">
+                <p style="color: #7F1D1D; margin: 0; font-size: 14px;">
+                    <strong>Reason:</strong> {error_msg[:200]}
+                </p>
+            </div>
+            <p style="color: #6B7280;">Common causes: site is offline, firewall blocking our scanner, or the server took too long to respond. You can retry from your dashboard.</p>
+            <div style="text-align: center; margin-top: 24px;">
+                <a href="{settings.FRONTEND_URL}/dashboard/sites/{site_uid}"
+                   style="display: inline-block; background: #2563EB; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                    Retry Scan
+                </a>
+            </div>
+        </div>
+        <div style="padding: 16px; text-align: center; color: #6B7280; font-size: 12px;">
+            <p>&copy; 2026 PageGuard. Web accessibility compliance made simple.</p>
+        </div>
+    </div>
+    """
+
+    text = f"Scan failed for {site_url}. Reason: {error_msg[:200]}. Retry: {settings.FRONTEND_URL}/dashboard/sites/{site_uid}"
+    return send_email(to, subject, html, text)
+
+
+def send_payment_failed_email(to: str, name: str):
+    """Send notification when a payment fails."""
+    subject = "PageGuard - Payment Failed"
+
+    html = f"""
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #2563EB; padding: 20px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">PageGuard</h1>
+        </div>
+        <div style="padding: 24px; background: #fff;">
+            <h2 style="margin-top: 0;">Payment Issue</h2>
+            <p>Hi {name},</p>
+            <p>We were unable to process your latest payment. Please update your payment method to keep your subscription active.</p>
+            <div style="background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 8px; padding: 16px; margin: 16px 0;">
+                <p style="color: #78350F; margin: 0;">
+                    Your subscription is now <strong>past due</strong>. Features may be limited until payment is resolved.
+                </p>
+            </div>
+            <div style="text-align: center; margin-top: 24px;">
+                <a href="{settings.FRONTEND_URL}/dashboard"
+                   style="display: inline-block; background: #2563EB; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                    Update Payment
+                </a>
+            </div>
+        </div>
+        <div style="padding: 16px; text-align: center; color: #6B7280; font-size: 12px;">
+            <p>&copy; 2026 PageGuard. Web accessibility compliance made simple.</p>
+        </div>
+    </div>
+    """
+
+    text = f"Hi {name}, your PageGuard payment failed. Update your payment method at {settings.FRONTEND_URL}/dashboard"
+    return send_email(to, subject, html, text)
+
+
 def send_password_reset_email(to: str, reset_token: str):
     """Send password reset email."""
     subject = "PageGuard - Reset Your Password"

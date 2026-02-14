@@ -36,7 +36,14 @@ function DashboardContent() {
   const [addError, setAddError] = useState('');
   const [adding, setAdding] = useState(false);
   const [userName, setUserName] = useState('');
+  const [userPlan, setUserPlan] = useState('free');
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
+  const [usage, setUsage] = useState<{
+    plan: string;
+    scans_used: number; scans_limit: number;
+    sites_used: number; sites_limit: number;
+    next_scheduled_scan: string | null;
+  } | null>(null);
 
   const refreshUserData = useCallback(async () => {
     try {
@@ -72,6 +79,15 @@ function DashboardContent() {
 
       const data = await api.getSites();
       setSites(data);
+
+      // Load usage data
+      try {
+        const usageData = await api.getUsage();
+        setUsage(usageData);
+        setUserPlan(usageData.plan);
+      } catch {
+        // Usage endpoint may fail for new accounts
+      }
     } catch {
       router.push('/login');
     } finally {
@@ -158,6 +174,52 @@ function DashboardContent() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
+        </div>
+      )}
+
+      {/* Plan Usage Bar */}
+      {usage && (
+        <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex flex-wrap items-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500">Plan:</span>
+              <span className="font-semibold text-gray-900 capitalize">{usage.plan === 'free' ? 'Free' : usage.plan}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500">Sites:</span>
+              <span className={`font-semibold ${usage.sites_used >= usage.sites_limit ? 'text-red-600' : 'text-gray-900'}`}>
+                {usage.sites_used}/{usage.sites_limit}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500">Scans this month:</span>
+              <span className={`font-semibold ${usage.scans_limit !== -1 && usage.scans_used >= usage.scans_limit ? 'text-red-600' : 'text-gray-900'}`}>
+                {usage.scans_used}/{usage.scans_limit === -1 ? 'Unlimited' : usage.scans_limit}
+              </span>
+            </div>
+            {usage.next_scheduled_scan && (
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">Next auto-scan:</span>
+                <span className="font-semibold text-gray-900">
+                  {new Date(usage.next_scheduled_scan).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            )}
+            {userPlan === 'free' && (
+              <Link href="/pricing" className="ml-auto text-sm font-semibold text-blue-600 hover:text-blue-700">
+                Upgrade for more scans &rarr;
+              </Link>
+            )}
+          </div>
+          {/* Progress bar for scan usage */}
+          {usage.scans_limit > 0 && (
+            <div className="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${usage.scans_used >= usage.scans_limit ? 'bg-red-500' : 'bg-blue-500'}`}
+                style={{ width: `${Math.min((usage.scans_used / usage.scans_limit) * 100, 100)}%` }}
+              />
+            </div>
+          )}
         </div>
       )}
 

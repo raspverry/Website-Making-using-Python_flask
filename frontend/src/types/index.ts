@@ -12,6 +12,7 @@ export interface Site {
   name: string;
   compliance_score: number | null;
   last_scan_at: string | null;
+  next_scan_at: string | null;
 }
 
 export interface Scan {

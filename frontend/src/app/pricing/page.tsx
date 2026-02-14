@@ -46,13 +46,11 @@ export default function PricingPage() {
         '20 websites',
         'Auto daily scans',
         'Everything in Pro',
-        'White-label reports',
-        'Team access',
-        'REST API access',
+        'Unlimited scans per month',
         '100 pages per scan',
+        'Priority email support',
       ],
-      cta: 'Coming Soon',
-      comingSoon: true,
+      cta: 'Get Agency',
     },
   ];
 
@@ -71,6 +69,53 @@ export default function PricingPage() {
           {plans.map((plan) => (
             <PricingCard key={plan.name} {...plan} />
           ))}
+        </div>
+
+        {/* Feature Comparison Table */}
+        <div className="mt-20 max-w-4xl mx-auto">
+          <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">Compare Plans</h2>
+          <div className="overflow-hidden rounded-2xl border border-gray-200">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="px-5 py-3 font-semibold text-gray-900">Feature</th>
+                  <th className="px-5 py-3 text-center font-semibold text-gray-500">Free</th>
+                  <th className="px-5 py-3 text-center font-semibold text-gray-700">Starter</th>
+                  <th className="px-5 py-3 text-center font-semibold text-blue-600">Pro</th>
+                  <th className="px-5 py-3 text-center font-semibold text-gray-700">Agency</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {[
+                  ['Websites', '1', '1', '5', '20'],
+                  ['Scans per month', '1', '4 (weekly)', '30 (daily)', 'Unlimited'],
+                  ['Pages per scan', '5', '50', '50', '100'],
+                  ['AI fix suggestions', '—', 'check', 'check', 'check'],
+                  ['Email alerts', '—', 'check', 'check', 'check'],
+                  ['PDF reports', '—', '—', 'check', 'check'],
+                  ['Compliance badge', '—', '—', 'check', 'check'],
+                  ['Priority support', '—', '—', '—', 'check'],
+                ].map(([feature, ...values]) => (
+                  <tr key={feature} className="hover:bg-gray-50/50">
+                    <td className="px-5 py-3 font-medium text-gray-900">{feature}</td>
+                    {values.map((v, i) => (
+                      <td key={i} className="px-5 py-3 text-center text-gray-600">
+                        {v === 'check' ? (
+                          <svg className="w-5 h-5 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : v === '—' ? (
+                          <span className="text-gray-300">—</span>
+                        ) : (
+                          v
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* What you get */}
